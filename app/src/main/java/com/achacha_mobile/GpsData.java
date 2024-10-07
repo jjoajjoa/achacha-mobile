@@ -1,15 +1,37 @@
 package com.achacha_mobile;
 
+import com.google.gson.annotations.SerializedName;
+
 public class GpsData {
-    private double latitude;
-    private double longitude;
-    private double altitude; // 고도는 선택적일 수 있음
-    private double speed;    // 속도도 선택적일 수 있음
-    private double accuracy; // 정확도
-    private String time; // 방향
+    @SerializedName("gpsLatitude")
+    private Double latitude; // 위도
+
+    @SerializedName("gpsLongitude")
+    private Double longitude; // 경도
+
+    @SerializedName("gpsAltitude")
+    private Double altitude; // 고도
+
+    @SerializedName("gpsSpeed")
+    private Double speed;    // 속도
+
+    @SerializedName("gpsAccuracy")
+    private Double accuracy; // 정확도
+
+    @SerializedName("gpsLogTime")
+    private String time; // 시간
+
+    // Double을 사용하는 이유
+    // null 값을 허용하지 않는 경우에는 double을 사용해야 하지만, API 요청을 위해 null을 허용해야 한다면 Double로 변경하는 것이 더 적합
 
     // 생성자
-    public GpsData(double latitude, double longitude, double altitude, double speed, double accuracy, String time) {
+    public GpsData(Double latitude, Double longitude, String time) {
+        this.latitude = latitude;
+        this.longitude = longitude;
+        this.time = time;
+    }
+
+    public GpsData(Double latitude, Double longitude, Double altitude, Double speed, Double accuracy, String time) {
         this.latitude = latitude;
         this.longitude = longitude;
         this.altitude = altitude;
@@ -19,19 +41,19 @@ public class GpsData {
     }
 
     // Getter와 Setter
-    public double getLatitude() {
+    public Double getLatitude() {
         return latitude;
     }
 
-    public void setLatitude(double latitude) {
+    public void setLatitude(Double latitude) {
         this.latitude = latitude;
     }
 
-    public double getLongitude() {
+    public Double getLongitude() {
         return longitude;
     }
 
-    public void setLongitude(double longitude) {
+    public void setLongitude(Double longitude) {
         this.longitude = longitude;
     }
 
@@ -39,7 +61,7 @@ public class GpsData {
         return altitude;
     }
 
-    public void setAltitude(double altitude) {
+    public void setAltitude(Double altitude) {
         this.altitude = altitude;
     }
 
@@ -47,7 +69,7 @@ public class GpsData {
         return speed;
     }
 
-    public void setSpeed(double speed) {
+    public void setSpeed(Double speed) {
         this.speed = speed;
     }
 
@@ -55,7 +77,7 @@ public class GpsData {
         return accuracy;
     }
 
-    public void setAccuracy(double accuracy) {
+    public void setAccuracy(Double accuracy) {
         this.accuracy = accuracy;
     }
 
