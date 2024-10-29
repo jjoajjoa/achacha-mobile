@@ -118,7 +118,7 @@ public class LocationService extends Service {
     private void sendLocationToServer(double latitude, double longitude, String time) {
         // Retrofit을 통해 서버에 위치 데이터를 전송
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.168.30.158:9000/") // 서버 URL
+                .baseUrl("http://172.168.30.145:9000/") // 서버 URL
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 

@@ -33,7 +33,7 @@ import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String BASE_URL = "http://172.168.30.158:9000/";
+    private static final String BASE_URL = "http://172.168.30.145:9000/";
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
