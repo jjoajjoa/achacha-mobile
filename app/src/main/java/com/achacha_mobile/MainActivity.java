@@ -5,6 +5,9 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Bundle;
 import android.util.Log;
+import android.webkit.WebSettings;
+import android.webkit.WebView;
+import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.Toast;
 
@@ -39,10 +42,21 @@ public class MainActivity extends AppCompatActivity {
     private LocationRequest locationRequest;
     private LocationCallback locationCallback;
 
+    // 웹뷰
+    private WebView webView;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+    
+        //웹뷰 설정
+        webView = findViewById(R.id.webView);
+        webView.setWebViewClient(new WebViewClient()); // 링크 클릭 시 새 브라우저 열리지 않도록 설정
+        // 웹 설정
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
+        webView.loadUrl("http://172.168.30.145:8080/apphome"); // 링크
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
