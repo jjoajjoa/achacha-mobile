@@ -11,7 +11,7 @@
         <WebView
             android:id="@+id/webView"
             android:layout_width="match_parent"
-            android:layout_height="634dp" />
+            android:layout_height="655dp" />
     </LinearLayout>
 
     <Button
@@ -22,7 +22,7 @@
         android:layout_alignParentTop="true"
         android:layout_marginStart="69dp"
         android:layout_marginTop="650dp"
-        android:layout_marginEnd="107dp"
+        android:layout_marginEnd="80dp"
         android:layout_toStartOf="@+id/stop_button"
         android:text="시작" />
 

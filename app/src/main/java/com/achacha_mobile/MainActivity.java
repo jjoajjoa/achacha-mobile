@@ -1,8 +1,14 @@
 package com.achacha_mobile;
 
 import android.Manifest;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.location.Location;
+import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
 import android.webkit.WebSettings;
@@ -11,9 +17,9 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.app.ActivityCompat;
+import androidx.core.app.NotificationCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -45,6 +51,11 @@ public class MainActivity extends AppCompatActivity {
     // 웹뷰
     private WebView webView;
 
+    // 외부 알림
+    NotificationManager manager;
+    private static String CHANNEL_ID = "channel";
+    private static String CHANNEL_NAME = "Channel";
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -53,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
         //웹뷰 설정
         webView = findViewById(R.id.webView);
         webView.setWebViewClient(new WebViewClient()); // 링크 클릭 시 새 브라우저 열리지 않도록 설정
+        webView.addJavascriptInterface(new WebAppInterface(this), "Android"); // 웹앱 인터페이스 안에 있는 함수를 실행 시킬 수 있음 - 일단 토스트로
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
@@ -101,6 +113,7 @@ public class MainActivity extends AppCompatActivity {
         }
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
         Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
+        showNoti();
     }
 
     private void stopLocationUpdates() {
@@ -154,4 +167,44 @@ public class MainActivity extends AppCompatActivity {
         @POST("/api/location/update")
         Call<Void> updateLocation(@Body GpsData location);
     }
+
+    // 알림 함수
+    public void showNoti() {
+        manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
+        NotificationCompat.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // 채널 설정
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID,
+                    CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_DEFAULT
+            );
+            // 추가 설정 가능
+            channel.setDescription("운행 관련 알림");
+            manager.createNotificationChannel(channel);
+            builder = new NotificationCompat.Builder(this, CHANNEL_ID);
+        } else {
+            builder = new NotificationCompat.Builder(this);
+        }
+
+        Intent intent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                101,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        builder.setContentTitle("GPS 시작")
+                .setContentText("운행이 시작되었습니다")
+                .setSmallIcon(android.R.drawable.ic_menu_view)
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        Notification noti = builder.build();
+        manager.notify(1, noti);
+    }
+
+
 }
