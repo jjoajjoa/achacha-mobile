@@ -69,11 +69,11 @@ public class MainActivity extends AppCompatActivity {
         //웹뷰 설정
         webView = findViewById(R.id.webView);
         webView.setWebViewClient(new WebViewClient()); // 링크 클릭 시 새 브라우저 열리지 않도록 설정
-        webView.addJavascriptInterface(new WebAppInterface(this), "Android"); // 웹앱 인터페이스 안에 있는 함수를 실행 시킬 수 있음 - 일단 토스트로
+        webView.addJavascriptInterface(new WebAppInterface(this), "Android"); // 웹앱 인터페이스 안에 있는 함수를 실행 시킬 수 있음
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://172.168.30.145:8080/"); // 링크
+        webView.loadUrl("http://172.168.30.145:8080/apphome"); // 링크
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
