@@ -10,6 +10,7 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
+import android.provider.Settings;
 import android.util.Log;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -55,6 +56,10 @@ public class MainActivity extends AppCompatActivity {
     NotificationManager manager;
     private static String CHANNEL_ID = "channel";
     private static String CHANNEL_NAME = "Channel";
+    private static String CHANNEL_ID2 = "channel2";
+    private static String CHANNEL_NAME2 = "Channel2";
+    private static String CHANNEL_ID3 = "channel3";
+    private static String CHANNEL_NAME3 = "Channel3";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -119,48 +124,8 @@ public class MainActivity extends AppCompatActivity {
     private void stopLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback);
         Toast.makeText(this, "위치 업데이트 중지", Toast.LENGTH_SHORT).show();
-    }
-
-    private void sendLocationToServer(Location location) {
-        double latitude = location.getLatitude();
-        double longitude = location.getLongitude();
-        double altitude = location.getAltitude();
-        double speed = location.getSpeed();
-        double accuracy = location.getAccuracy();
-        long millisecondTime = location.getTime();
-        String time = formatDate(millisecondTime);
-
-        Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl(BASE_URL)
-                .addConverterFactory(GsonConverterFactory.create())
-                .build();
-
-        ApiService apiService = retrofit.create(ApiService.class);
-        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time);
-
-        Call<Void> call = apiService.updateLocation(gpsData);
-        call.enqueue(new Callback<Void>() {
-            @Override
-            public void onResponse(Call<Void> call, Response<Void> response) {
-                if (response.isSuccessful()) {
-                    Toast.makeText(getApplicationContext(), "GPS 데이터 전송 성공", Toast.LENGTH_SHORT).show();
-                } else {
-                    Toast.makeText(getApplicationContext(), "오류 발생: " + response.code(), Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(Call<Void> call, Throwable t) {
-                Log.e("Retrofit Error", "데이터 전송 실패: " + t.getMessage());
-                Toast.makeText(getApplicationContext(), "데이터 전송 실패: " + t.getMessage(), Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    public String formatDate(long timeInMillis) {
-        Date date = new Date(timeInMillis);
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault());
-        return sdf.format(date);
+        showEndNoti();
+        showEmergencyNoti();
     }
 
     interface ApiService {
@@ -208,7 +173,89 @@ public class MainActivity extends AppCompatActivity {
         // LocationService 시작
         Intent serviceIntent = new Intent(this, LocationService.class);
         startService(serviceIntent);
-
     }
 
+    // 알림 - 끝
+    public void showEndNoti() {
+        manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
+        NotificationCompat.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            // 채널 설정
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID2,
+                    CHANNEL_NAME2,
+                    NotificationManager.IMPORTANCE_DEFAULT
+            );
+            // 추가 설정 가능
+            channel.setDescription("운행 관련 알림");
+            manager.createNotificationChannel(channel);
+            builder = new NotificationCompat.Builder(this, CHANNEL_ID2);
+        } else {
+            builder = new NotificationCompat.Builder(this);
+        }
+
+        Intent intent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                101,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        builder.setContentTitle("GPS 종료")
+                .setContentText("운행이 종료되었습니다")
+                .setSmallIcon(android.R.drawable.ic_menu_view) // 임시 아이콘
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent);
+
+        Notification noti = builder.build();
+        manager.notify(2, noti);
+
+        // gps 서비스 종료 ( LocationService 종료 )
+        Intent serviceIntent = new Intent(this, LocationService.class);
+        stopService(serviceIntent);
+    }
+
+    // 졸음 꺠우기 알림
+    public void showEmergencyNoti() {
+        manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+
+        NotificationCompat.Builder builder;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    CHANNEL_ID3,
+                    CHANNEL_NAME3,
+                    NotificationManager.IMPORTANCE_HIGH // 강제 알림
+            );
+            channel.setDescription("긴급 알림");
+            channel.enableLights(true);
+            channel.enableVibration(true);
+            manager.createNotificationChannel(channel);
+            builder = new NotificationCompat.Builder(this, CHANNEL_ID3);
+        } else {
+            builder = new NotificationCompat.Builder(this);
+        }
+
+        Intent intent = new Intent(this, MainActivity.class);
+        PendingIntent pendingIntent = PendingIntent.getActivity(
+                this,
+                101,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
+        );
+
+        long[] vibrationPattern = {0, 500, 1000}; // 진동 패턴 설정
+        builder.setContentTitle("졸음 운전 경고!")
+                .setContentText("운전 중 졸음이 감지되었습니다.")
+                .setSmallIcon(android.R.drawable.ic_menu_view) // 임시 아이콘 -- 긴금으로 바꿔야함
+                .setAutoCancel(true)
+                .setContentIntent(pendingIntent)
+                .setVibrate(vibrationPattern) // 진동 추가
+                .setSound(Settings.System.DEFAULT_ALARM_ALERT_URI); // 기본 알람 소리 설정
+
+        Notification noti = builder.build();
+        manager.notify(3, noti);
+    }
+    
 }
