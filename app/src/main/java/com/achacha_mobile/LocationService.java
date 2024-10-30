@@ -10,7 +10,9 @@ import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
 import android.os.IBinder;
+import android.os.PowerManager;
 import android.util.Log;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.core.app.ActivityCompat;
@@ -39,6 +41,8 @@ public class LocationService extends Service {
     private static final String CHANNEL_ID = "LocationServiceChannel";
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
+    private PowerManager.WakeLock wakeLock; // Wake Lock
+
 
     @Override
     public void onCreate() {
@@ -47,11 +51,39 @@ public class LocationService extends Service {
         createNotificationChannel(); // 알림 채널 생성
         startForeground(1, getNotification()); // 포그라운드 서비스 시작
         getLocationUpdates(); // 위치 업데이트 시작
+        acquireWakeLock(); // Wake Lock 획득 -- 앱 꺼지지 않게
+    }
+
+    // Wake Lock 획득
+    private void acquireWakeLock() {
+        PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::HeartRateWakelock");
+        if (wakeLock != null) {
+            wakeLock.acquire(); // Wake Lock 획득
+        }
     }
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
+        startForeground(1, createNotification()); // 포그라운드 서비스 시작
         return START_STICKY; // 서비스가 종료된 경우 재시작
+    }
+
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        if (wakeLock != null && wakeLock.isHeld()) {
+            wakeLock.release(); // Wake Lock 해제
+        }
+    }
+
+    // 알림 생성 메서드
+    private Notification createNotification() {
+        Notification.Builder builder = new Notification.Builder(this, CHANNEL_ID)
+                .setContentTitle("GPS Monitoring")
+                .setContentText("Monitoring your GPS...")
+                .setPriority(Notification.PRIORITY_HIGH); // 중요도 설정
+        return builder.build();
     }
 
     private void getLocationUpdates() {
@@ -77,7 +109,7 @@ public class LocationService extends Service {
                     double longitude = location.getLongitude();
                     long timestamp = location.getTime(); // 현재 시간 가져오기
                     String time = formatDate(timestamp); // 포맷팅
-                    sendLocationToServer(latitude, longitude, time); // 위치 데이터와 시간을 서버로 전송
+                    sendLocationToServer(location); // 위치 데이터와 시간을 서버로 전송
                 }
             }
         }, getMainLooper());
@@ -115,30 +147,38 @@ public class LocationService extends Service {
         return null; // 바인드된 서비스가 아님
     }
 
-    private void sendLocationToServer(double latitude, double longitude, String time) {
-        // Retrofit을 통해 서버에 위치 데이터를 전송
+    private void sendLocationToServer(Location location) {
+        double latitude = location.getLatitude();
+        double longitude = location.getLongitude();
+        double altitude = location.getAltitude();
+        double speed = location.getSpeed();
+        double accuracy = location.getAccuracy();
+        long millisecondTime = location.getTime();
+        String time = formatDate(millisecondTime);
+
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.168.30.145:9000/") // 서버 URL
+                .baseUrl("http://172.168.30.145:9000/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
-        ApiService apiService = retrofit.create(ApiService.class);
-        GpsData gpsData = new GpsData(latitude, longitude, time);
+        MainActivity.ApiService apiService = retrofit.create(MainActivity.ApiService.class);
+        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time);
 
         Call<Void> call = apiService.updateLocation(gpsData);
         call.enqueue(new Callback<Void>() {
             @Override
             public void onResponse(Call<Void> call, Response<Void> response) {
                 if (response.isSuccessful()) {
-                    Log.d("LocationService", "위치 데이터 전송 성공: Latitude: " + latitude + ", Longitude: " + longitude + ", Time: " + time);
+                    Toast.makeText(getApplicationContext(), "GPS 데이터 전송 성공", Toast.LENGTH_SHORT).show();
                 } else {
-                    Log.e("LocationService", "전송 실패: " + response.code());
+                    Toast.makeText(getApplicationContext(), "오류 발생: " + response.code(), Toast.LENGTH_SHORT).show();
                 }
             }
 
             @Override
             public void onFailure(Call<Void> call, Throwable t) {
-                Log.e("LocationService", "위치 전송 실패: " + t.getMessage());
+                Log.e("Retrofit Error", "데이터 전송 실패: " + t.getMessage());
+                Toast.makeText(getApplicationContext(), "데이터 전송 실패: " + t.getMessage(), Toast.LENGTH_SHORT).show();
             }
         });
     }

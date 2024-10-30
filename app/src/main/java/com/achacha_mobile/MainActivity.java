@@ -68,7 +68,7 @@ public class MainActivity extends AppCompatActivity {
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://172.168.30.145:8080/apphome"); // 링크
+        webView.loadUrl("http://172.168.30.145:8080/"); // 링크
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -101,7 +101,7 @@ public class MainActivity extends AppCompatActivity {
                 }
                 for (Location location : locationResult.getLocations()) {
                     Log.d(TAG, "New location: " + location.toString()); // 새로운 위치 로그
-                    sendLocationToServer(location);
+                   // sendLocationToServer(location); -- 포그라운드 에서 실행 함 - 없어도 됨
                 }
             }
         };
@@ -113,7 +113,7 @@ public class MainActivity extends AppCompatActivity {
         }
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
         Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
-        showNoti();
+        showStartNoti();
     }
 
     private void stopLocationUpdates() {
@@ -169,7 +169,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     // 알림 함수
-    public void showNoti() {
+    public void showStartNoti() {
         manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
 
         NotificationCompat.Builder builder;
@@ -198,13 +198,17 @@ public class MainActivity extends AppCompatActivity {
 
         builder.setContentTitle("GPS 시작")
                 .setContentText("운행이 시작되었습니다")
-                .setSmallIcon(android.R.drawable.ic_menu_view)
+                .setSmallIcon(android.R.drawable.ic_menu_view) // 임시 아이콘
                 .setAutoCancel(true)
                 .setContentIntent(pendingIntent);
 
         Notification noti = builder.build();
         manager.notify(1, noti);
-    }
 
+        // LocationService 시작
+        Intent serviceIntent = new Intent(this, LocationService.class);
+        startService(serviceIntent);
+
+    }
 
 }
