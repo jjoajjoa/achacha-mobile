@@ -5,7 +5,9 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
@@ -37,6 +39,12 @@ import retrofit2.http.Body;
 import retrofit2.http.POST;
 
 import androidx.annotation.NonNull;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.firestore.FieldValue;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -70,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://172.168.30.145:8080/apphome"); // 링크
+        webView.loadUrl("http://172.168.10.88:8080/apphome"); // 링크
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -148,8 +156,25 @@ public class MainActivity extends AppCompatActivity {
                         // Log and toast
                         String msg = "FCM Token: " + token;
                         Log.d(TAG, msg);
+
+                        // 토큰을 서버에 전송
+                        sendTokenToServer(token);
                     }
                 });
+    }
+
+    private void sendTokenToServer(String token) {
+        // 토큰과 타임스탬프를 담을 맵 생성
+        Map<String, Object> deviceToken = new HashMap<>();
+        deviceToken.put("token", token);
+        deviceToken.put("timestamp", FieldValue.serverTimestamp());
+
+        // Firestore에 데이터 저장
+        FirebaseFirestore.getInstance().collection("fcmTokens")
+                .document("myuserid") // 실제 사용자 ID로 변경
+                .set(deviceToken)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Token successfully saved to Firestore."))
+                .addOnFailureListener(e -> Log.e(TAG, "Error saving token to Firestore: " + e.getMessage()));
     }
 
     // 알림 함수
