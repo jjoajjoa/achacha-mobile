@@ -1,9 +1,16 @@
 package com.achacha_mobile;
 
+import com.google.android.gms.location.Priority;
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
+    private static final String TAG = "FMS";
+
+    public MyFirebaseMessagingService() {
+
+    }
+
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
         // 메시지 수신 시 실행할 로직

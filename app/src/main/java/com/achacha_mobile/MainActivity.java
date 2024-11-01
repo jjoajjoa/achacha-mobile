@@ -28,22 +28,19 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
+import com.google.firebase.messaging.FirebaseMessaging;
 
 import retrofit2.Call;
-import retrofit2.Callback;
-import retrofit2.Response;
-import retrofit2.Retrofit;
-import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.Body;
 import retrofit2.http.POST;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Locale;
+import androidx.annotation.NonNull;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String BASE_URL = "http://172.168.30.145:9000/";
+    private static final String BASE_URL = "http://172.168.10.88:9000/";
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
@@ -110,6 +107,8 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
+        // 토큰 가져오기
+        fetchFCMToken();
     }
 
     private void startLocationUpdates() {
@@ -131,6 +130,26 @@ public class MainActivity extends AppCompatActivity {
     interface ApiService {
         @POST("/api/location/update")
         Call<Void> updateLocation(@Body GpsData location);
+    }
+
+    private void fetchFCMToken() {
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(new OnCompleteListener<String>() {
+                    @Override
+                    public void onComplete(@NonNull Task<String> task) {
+                        if (!task.isSuccessful()) {
+                            Log.w(TAG, "Fetching FCM registration token failed", task.getException());
+                            return;
+                        }
+
+                        // Get new FCM registration token
+                        String token = task.getResult();
+
+                        // Log and toast
+                        String msg = "FCM Token: " + token;
+                        Log.d(TAG, msg);
+                    }
+                });
     }
 
     // 알림 함수
