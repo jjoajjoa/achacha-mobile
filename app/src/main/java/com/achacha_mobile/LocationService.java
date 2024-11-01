@@ -34,6 +34,7 @@ import retrofit2.http.Body;
 import retrofit2.http.POST;
 
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
 import java.util.Date;
 import java.util.Locale;
 
@@ -72,6 +73,10 @@ public class LocationService extends Service {
     @Override
     public void onDestroy() {
         super.onDestroy();
+        // 서비스가 종료될 때 위치 업데이트 종료
+//        if (fusedLocationClient != null) {
+//            fusedLocationClient.removeLocationUpdates(locationCallback);
+//        }
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release(); // Wake Lock 해제
         }
@@ -82,6 +87,7 @@ public class LocationService extends Service {
         Notification.Builder builder = new Notification.Builder(this, CHANNEL_ID)
                 .setContentTitle("GPS Monitoring")
                 .setContentText("Monitoring your GPS...")
+                .setSmallIcon(R.drawable.warning)
                 .setPriority(Notification.PRIORITY_HIGH); // 중요도 설정
         return builder.build();
     }
@@ -154,7 +160,7 @@ public class LocationService extends Service {
         double speed = location.getSpeed();
         double accuracy = location.getAccuracy();
         long millisecondTime = location.getTime();
-        String time = formatDate(millisecondTime);
+        String timeString = formatDate(millisecondTime);;
 
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("http://172.168.10.81:9000/")
@@ -162,7 +168,7 @@ public class LocationService extends Service {
                 .build();
 
         MainActivity.ApiService apiService = retrofit.create(MainActivity.ApiService.class);
-        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time);
+        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, timeString);
 
         Call<Void> call = apiService.updateLocation(gpsData);
         call.enqueue(new Callback<Void>() {
@@ -185,7 +191,7 @@ public class LocationService extends Service {
 
     private String formatDate(long timeInMillis) {
         Date date = new Date(timeInMillis);
-        SimpleDateFormat sdf = new SimpleDateFormat("yyyy/MM/dd HH:mm:ss", Locale.getDefault());
+        SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX", Locale.getDefault()); // ISO-8601 포맷
         return sdf.format(date);
     }
 

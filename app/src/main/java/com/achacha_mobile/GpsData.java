@@ -2,6 +2,8 @@ package com.achacha_mobile;
 
 import com.google.gson.annotations.SerializedName;
 
+import java.time.LocalDateTime;
+
 public class GpsData {
     @SerializedName("gpsLatitude")
     private Double latitude; // 위도
@@ -25,11 +27,11 @@ public class GpsData {
     // null 값을 허용하지 않는 경우에는 double을 사용해야 하지만, API 요청을 위해 null을 허용해야 한다면 Double로 변경하는 것이 더 적합
 
     // 생성자
-    public GpsData(Double latitude, Double longitude, String time) {
-        this.latitude = latitude;
-        this.longitude = longitude;
-        this.time = time;
-    }
+//    public GpsData(Double latitude, Double longitude, LocalDateTime time) {
+//        this.latitude = latitude;
+//        this.longitude = longitude;
+//        this.time = time;
+//    }
 
     public GpsData(Double latitude, Double longitude, Double altitude, Double speed, Double accuracy, String time) {
         this.latitude = latitude;
