@@ -152,6 +152,7 @@ public class MainActivity extends AppCompatActivity {
 
                         // Get new FCM registration token
                         String token = task.getResult();
+                        // 이 토큰으로 기기 인식 시키고 알람보낼 때 확인 할 수 있게 함
 
                         // Log and toast
                         String msg = "FCM Token: " + token;
@@ -163,6 +164,7 @@ public class MainActivity extends AppCompatActivity {
                 });
     }
 
+    //데이터베이스로 보내는 함수
     private void sendTokenToServer(String token) {
         // 토큰과 타임스탬프를 담을 맵 생성
         Map<String, Object> deviceToken = new HashMap<>();
@@ -171,95 +173,12 @@ public class MainActivity extends AppCompatActivity {
 
         // Firestore에 데이터 저장
         FirebaseFirestore.getInstance().collection("fcmTokens")
-                .document("myuserid") // 실제 사용자 ID로 변경
+                .document("seheon") // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
                 .set(deviceToken)
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Token successfully saved to Firestore."))
                 .addOnFailureListener(e -> Log.e(TAG, "Error saving token to Firestore: " + e.getMessage()));
     }
 
-    // 알림 함수
-    public void showStartNoti() {
-        manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-
-        NotificationCompat.Builder builder;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // 채널 설정
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID,
-                    CHANNEL_NAME,
-                    NotificationManager.IMPORTANCE_DEFAULT
-            );
-            // 추가 설정 가능
-            channel.setDescription("운행 관련 알림");
-            manager.createNotificationChannel(channel);
-            builder = new NotificationCompat.Builder(this, CHANNEL_ID);
-        } else {
-            builder = new NotificationCompat.Builder(this);
-        }
-
-        Intent intent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-                this,
-                101,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        builder.setContentTitle("GPS 시작")
-                .setContentText("운행이 시작되었습니다")
-                .setSmallIcon(android.R.drawable.ic_menu_view) // 임시 아이콘
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent);
-
-        Notification noti = builder.build();
-        manager.notify(1, noti);
-
-        // LocationService 시작
-        Intent serviceIntent = new Intent(this, LocationService.class);
-        startService(serviceIntent);
-    }
-
-    // 알림 - 끝
-    public void showEndNoti() {
-        manager = (NotificationManager) getSystemService(NOTIFICATION_SERVICE);
-
-        NotificationCompat.Builder builder;
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            // 채널 설정
-            NotificationChannel channel = new NotificationChannel(
-                    CHANNEL_ID2,
-                    CHANNEL_NAME2,
-                    NotificationManager.IMPORTANCE_DEFAULT
-            );
-            // 추가 설정 가능
-            channel.setDescription("운행 관련 알림");
-            manager.createNotificationChannel(channel);
-            builder = new NotificationCompat.Builder(this, CHANNEL_ID2);
-        } else {
-            builder = new NotificationCompat.Builder(this);
-        }
-
-        Intent intent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(
-                this,
-                101,
-                intent,
-                PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
-        );
-
-        builder.setContentTitle("GPS 종료")
-                .setContentText("운행이 종료되었습니다")
-                .setSmallIcon(android.R.drawable.ic_menu_view) // 임시 아이콘
-                .setAutoCancel(true)
-                .setContentIntent(pendingIntent);
-
-        Notification noti = builder.build();
-        manager.notify(2, noti);
-
-        // gps 서비스 종료 ( LocationService 종료 )
-        Intent serviceIntent = new Intent(this, LocationService.class);
-        stopService(serviceIntent);
-    }
 
     // 졸음 꺠우기 알림
     public void showEmergencyNoti() {
