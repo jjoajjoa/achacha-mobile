@@ -48,7 +48,7 @@ import com.google.firebase.firestore.FieldValue;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String BASE_URL = "http://172.168.10.81:9000/";
+    private static final String BASE_URL = "http://175.197.201.115:9000/";
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://172.168.10.81:8080/apphome"); // 링크
+        webView.loadUrl("http://175.197.201.115:8080/apphome"); // 링크
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 

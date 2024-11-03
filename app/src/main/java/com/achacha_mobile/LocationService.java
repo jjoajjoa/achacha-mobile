@@ -163,7 +163,7 @@ public class LocationService extends Service {
         String timeString = formatDate(millisecondTime);;
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.168.10.81:9000/")
+                .baseUrl("http://175.197.201.115:9000/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
