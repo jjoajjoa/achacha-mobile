@@ -60,7 +60,7 @@ public class LocationService extends Service {
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::HeartRateWakelock");
         if (wakeLock != null) {
-            wakeLock.acquire(); // Wake Lock 획득
+            wakeLock.acquire(); // Wake Lock 획득 
         }
     }
 

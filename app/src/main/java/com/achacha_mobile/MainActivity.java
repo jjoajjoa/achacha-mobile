@@ -78,7 +78,7 @@ public class MainActivity extends AppCompatActivity {
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://175.197.201.115:8080/apphome"); // 링크
+        webView.loadUrl("http://175.197.201.115:8080/apphome"); // 앱홈링크
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
