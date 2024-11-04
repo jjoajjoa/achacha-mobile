@@ -59,10 +59,6 @@ public class MainActivity extends AppCompatActivity {
 
     // 외부 알림
     NotificationManager manager;
-    private static String CHANNEL_ID = "channel";
-    private static String CHANNEL_NAME = "Channel";
-    private static String CHANNEL_ID2 = "channel2";
-    private static String CHANNEL_NAME2 = "Channel2";
     private static String CHANNEL_ID3 = "channel3";
     private static String CHANNEL_NAME3 = "Channel3";
 
@@ -73,12 +69,10 @@ public class MainActivity extends AppCompatActivity {
     
         //웹뷰 설정
         webView = findViewById(R.id.webView);
-        webView.setWebViewClient(new WebViewClient()); // 링크 클릭 시 새 브라우저 열리지 않도록 설정
-        webView.addJavascriptInterface(new WebAppInterface(this), "Android"); // 웹앱 인터페이스 안에 있는 함수를 실행 시킬 수 있음
-        // 웹 설정
-        WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://172.168.10.88:8080/apphome"); // 링크
+        webView.setWebViewClient(new WebViewClient());
+        webView.addJavascriptInterface(new WebAppInterface(this), "Android");
+        webView.getSettings().setJavaScriptEnabled(true);
+        webView.loadUrl("http://172.168.10.88:8080/applogin");
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -125,13 +119,13 @@ public class MainActivity extends AppCompatActivity {
         }
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
         Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
-        showStartNoti();
+
     }
 
     private void stopLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback);
         Toast.makeText(this, "위치 업데이트 중지", Toast.LENGTH_SHORT).show();
-        showEndNoti();
+
         showEmergencyNoti();
     }
 
@@ -171,9 +165,13 @@ public class MainActivity extends AppCompatActivity {
         deviceToken.put("token", token);
         deviceToken.put("timestamp", FieldValue.serverTimestamp());
 
+        // 사용자 아이디 가져오기
+        SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", "defaultUser"); // 기본값 설정
+
         // Firestore에 데이터 저장
         FirebaseFirestore.getInstance().collection("fcmTokens")
-                .document("seheon") // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
+                .document(userId) // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
                 .set(deviceToken)
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Token successfully saved to Firestore."))
                 .addOnFailureListener(e -> Log.e(TAG, "Error saving token to Firestore: " + e.getMessage()));

@@ -16,11 +16,11 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         if (remoteMessage.getData().size() > 0) {
             // 데이터 메시지 처리
             String action = remoteMessage.getData().get("action");
-            handleAction(action);
+//            handleAction(action);
         }
     }
 
-    private void handleAction(String action) {
+   /* private void handleAction(String action) {
         if ("start_noti".equals(action)) {
             // 알림 시작 함수 호출
             ((MainActivity) getApplicationContext()).showStartNoti();
@@ -31,5 +31,5 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             // 긴급 알림 함수 호출
             ((MainActivity) getApplicationContext()).showEmergencyNoti();
         }
-    }
+    }*/
 }
