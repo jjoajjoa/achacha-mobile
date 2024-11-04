@@ -134,7 +134,7 @@ public class MainActivity extends AppCompatActivity {
         Call<Void> updateLocation(@Body GpsData location);
     }
 
-    private void fetchFCMToken() {
+    void fetchFCMToken() {
         FirebaseMessaging.getInstance().getToken()
                 .addOnCompleteListener(new OnCompleteListener<String>() {
                     @Override
