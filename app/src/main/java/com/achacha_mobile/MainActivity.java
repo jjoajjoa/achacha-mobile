@@ -59,10 +59,7 @@ public class MainActivity extends AppCompatActivity {
 
     // 외부 알림
     NotificationManager manager;
-    private static String CHANNEL_ID = "channel";
-    private static String CHANNEL_NAME = "Channel";
-    private static String CHANNEL_ID2 = "channel2";
-    private static String CHANNEL_NAME2 = "Channel2";
+
     private static String CHANNEL_ID3 = "channel3";
     private static String CHANNEL_NAME3 = "Channel3";
 
@@ -125,13 +122,11 @@ public class MainActivity extends AppCompatActivity {
         }
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
         Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
-        showStartNoti();
     }
 
     private void stopLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback);
         Toast.makeText(this, "위치 업데이트 중지", Toast.LENGTH_SHORT).show();
-        showEndNoti();
         showEmergencyNoti();
     }
 

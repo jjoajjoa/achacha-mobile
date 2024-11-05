@@ -10,19 +10,7 @@ public class WebAppInterface {
         mContext = c;
     }
 
-    @JavascriptInterface
-    public void startNoti() {
-        if (mContext instanceof MainActivity) {
-            ((MainActivity) mContext).showStartNoti(); // MainActivity의 showStartNoti 호출
-        }
-    }
 
-    @JavascriptInterface
-    public void endNoti() {
-        if (mContext instanceof MainActivity) {
-            ((MainActivity) mContext).showEndNoti(); // MainActivity의 showStartNoti 호출
-        }
-    }
 
     @JavascriptInterface
     public void emergencyNoti() {
