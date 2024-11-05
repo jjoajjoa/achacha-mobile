@@ -5,7 +5,9 @@ import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
 import android.os.Build;
@@ -156,13 +158,17 @@ public class LocationService extends Service {
         long millisecondTime = location.getTime();
         String time = formatDate(millisecondTime);
 
+        // 사용자 아이디 가져오기
+        SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", "defaultUser"); // 기본값 설정
+
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("http://172.168.10.88:9000/")
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
         MainActivity.ApiService apiService = retrofit.create(MainActivity.ApiService.class);
-        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time);
+        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time, userId);
 
         Call<Void> call = apiService.updateLocation(gpsData);
         call.enqueue(new Callback<Void>() {

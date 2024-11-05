@@ -39,7 +39,12 @@ import retrofit2.http.Body;
 import retrofit2.http.POST;
 
 import androidx.annotation.NonNull;
+import androidx.webkit.internal.ApiFeature;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -66,13 +71,21 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-    
+
+        SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", null); // 기본값 설정
+        Log.d("userId", userId);
         //웹뷰 설정
         webView = findViewById(R.id.webView);
         webView.setWebViewClient(new WebViewClient());
         webView.addJavascriptInterface(new WebAppInterface(this), "Android");
         webView.getSettings().setJavaScriptEnabled(true);
-        webView.loadUrl("http://172.168.10.88:8080/applogin");
+        webView.setSaveEnabled(true);
+        if(userId == null) {
+            webView.loadUrl("http://172.168.10.88:8080/applogin");
+        } else {
+            webView.loadUrl("http://172.168.10.88:8080/apphome");
+        }
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -109,8 +122,6 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
-        // 토큰 가져오기
-        fetchFCMToken();
     }
 
     private void startLocationUpdates() {
@@ -128,6 +139,32 @@ public class MainActivity extends AppCompatActivity {
 
         showEmergencyNoti();
     }
+
+    void sendIdandToken(String userId, String token) {
+        try {
+            // URL에 쿼리 매개변수 추가
+            String urlString = String.format("%s/noti/sendToken?userId=%s&token=%s",
+                    BASE_URL,
+                    URLEncoder.encode(userId, "UTF-8"),
+                    URLEncoder.encode(token, "UTF-8"));
+
+            URL url = new URL(urlString);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection(); // 연결 생성
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Content-Type", "application/json"); // 헤더 설정
+
+            // 응답 코드 확인
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                System.out.println("전송 성공");
+            } else {
+                System.out.println("전송 실패: " + responseCode);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     interface ApiService {
         @POST("/api/location/update")
@@ -168,6 +205,8 @@ public class MainActivity extends AppCompatActivity {
         // 사용자 아이디 가져오기
         SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", "defaultUser"); // 기본값 설정
+
+        sendIdandToken(token, userId);
 
         // Firestore에 데이터 저장
         FirebaseFirestore.getInstance().collection("fcmTokens")

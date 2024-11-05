@@ -12,13 +12,12 @@ public class WebAppInterface {
     }
 
     @JavascriptInterface
-    public void saveCredentials(String username, String password) {
+    public void saveCredentials(String employeeUniqueNumber, String employeePassword) {
         // 로그인 정보를 SharedPreferences에 저장
         SharedPreferences sharedPreferences = mContext.getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString("username", username);
-        editor.putString("userId", username); // 사용자 ID로 username 사용
-        editor.putString("password", password);
+        editor.putString("userId", employeeUniqueNumber);
+        editor.putString("password", employeePassword);
         editor.apply();
 
         ((MainActivity) mContext).fetchFCMToken();
