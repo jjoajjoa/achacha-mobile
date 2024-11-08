@@ -48,4 +48,19 @@ dependencies {
     implementation("com.google.android.gms:play-services-wearable:18.0.0")
     implementation("androidx.webkit:webkit:1.8.0")
     implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
+
+    // CameraX 라이브러리
+    implementation("androidx.camera:camera-core:1.1.0")
+    implementation("androidx.camera:camera-camera2:1.1.0")
+    implementation("androidx.camera:camera-lifecycle:1.1.0")
+    implementation("androidx.camera:camera-view:1.1.0")
+
+    // TensorFlow Lite 라이브러리
+    implementation("com.google.ai.edge.litert:litert:1.0.1")
+    implementation("com.google.ai.edge.litert:litert-gpu:1.0.1")
+    implementation("com.google.ai.edge.litert:litert-metadata:1.0.1")
+    implementation("com.google.ai.edge.litert:litert-support:1.0.1")
+    implementation("com.google.mediapipe:mediapipe-android:0.8.10")
+    implementation("com.google.mediapipe:tasks-vision:0.8.10")
+
 }

@@ -16,10 +16,19 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.Toast;
+import androidx.annotation.NonNull;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.ImageAnalysis;
+import androidx.camera.core.ImageProxy;
+import androidx.camera.core.Preview;
+import androidx.camera.core.impl.ImageAnalysisConfig;
+import androidx.camera.core.impl.PreviewConfig;
+import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
@@ -27,6 +36,9 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mediapipe.tasks.vision.core.RunningMode;
+import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -36,9 +48,18 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.Body;
 import retrofit2.http.POST;
 
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.ExecutionException;
+
+import com.google.mediapipe.framework.AndroidPacketCreator;
+import com.google.mediapipe.framework.Packet;
+import com.google.mediapipe.tasks.vision.face_landmarker.FaceLandmarker;
+import com.google.mediapipe.tasks.vision.face_landmarker.FaceLandmarkerOptions;
+import com.google.mediapipe.tasks.vision.face_landmarker.FaceLandmarkerResult;
+
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
@@ -55,6 +76,9 @@ public class MainActivity extends AppCompatActivity {
     NotificationManager manager;
     private static String CHANNEL_ID = "channel";
     private static String CHANNEL_NAME = "Channel";
+
+    // MediaPipe - 객체인식
+    private FaceLandmarker faceLandmarker;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -105,7 +129,18 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         };
-    }
+
+        // 카메라 시작
+        startCamera();
+
+        // MediaPipe 모델 초기화
+        try {
+            loadModel();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    } //onCreate
 
     private void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -209,6 +244,66 @@ public class MainActivity extends AppCompatActivity {
         Intent serviceIntent = new Intent(this, LocationService.class);
         startService(serviceIntent);
 
+    } //showStartNoti
+
+    private void loadModel() throws IOException {
+        // FaceLandmarkerOptions 객체를 생성하는 Builder 사용
+        FaceLandmarker.FaceLandmarkerOptions options =
+                new FaceLandmarker.FaceLandmarkerOptions.Builder()
+                        .setRunningMode(RunningMode.LIVE_STREAM) // 실시간 모드 설정
+                        .build();
+
+        // assets 폴더에서 face_landmark.tflite 모델 파일을 로드
+        faceLandmarker = FaceLandmarker.createFromFile(
+                this,
+                "face_landmark.tflite",
+                options
+        );
     }
 
-}
+    private void startCamera() {
+        ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
+        cameraProviderFuture.addListener(() -> {
+            try {
+                ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+
+                Preview preview = new Preview.Builder().build();
+                CameraSelector cameraSelector = new CameraSelector.Builder()
+                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT) // 전면 카메라 사용
+                        .build();
+
+                ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
+                        .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .build();
+
+                imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), new ImageAnalysis.Analyzer() {
+                    @OptIn(markerClass = com.google.mediapipe.tasks.vision.core.ImageProcessingOptions.class)
+                    @Override
+                    public void analyze(@NonNull ImageProxy image) {
+                        // 이미지 분석 처리 - MediaPipe로 전송
+                        if (faceLandmarker != null) {
+                            com.google.mediapipe.tasks.vision.core.ImageProcessingOptions imageProcessingOptions =
+                                    com.google.mediapipe.tasks.vision.core.ImageProcessingOptions.builder().build();
+
+                            faceLandmarker.process(image.getImage(), imageProcessingOptions)
+                                    .addOnSuccessListener(result -> {
+                                        // 여기에서 눈꺼풀 추적 결과를 사용할 수 있습니다.
+                                        Log.d(TAG, "Face landmarks detected: " + result.size());
+                                        // 추적 결과에 대한 추가 처리
+
+                                    })
+                                    .addOnFailureListener(Throwable::printStackTrace)
+                                    .addOnCompleteListener(task -> image.close()); // 이미지 리소스 해제
+                        }
+                    }
+                });
+
+                cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
+            } catch (ExecutionException | InterruptedException e) {
+                e.printStackTrace();
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+
+    } //MainActivity
