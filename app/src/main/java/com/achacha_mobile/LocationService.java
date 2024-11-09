@@ -1,5 +1,6 @@
 package com.achacha_mobile;
 
+import android.app.ActivityManager;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -21,6 +22,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationAvailability;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
@@ -51,7 +53,6 @@ public class LocationService extends Service {
         super.onCreate();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel(); // 알림 채널 생성
-        startForeground(1, getNotification()); // 포그라운드 서비스 시작
         getLocationUpdates(); // 위치 업데이트 시작
         acquireWakeLock(); // Wake Lock 획득 -- 앱 꺼지지 않게
     }
@@ -67,9 +68,22 @@ public class LocationService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        startForeground(1, createNotification()); // 포그라운드 서비스 시작
+        // 포그라운드 서비스로 시작
+        startForeground(1, getNotification());
         return START_STICKY; // 서비스가 종료된 경우 재시작
     }
+
+    LocationCallback locationCallback = new LocationCallback() {
+        @Override
+        public void onLocationResult(LocationResult locationResult) {
+            // 위치 결과 처리
+        }
+
+        @Override
+        public void onLocationAvailability(LocationAvailability locationAvailability) {
+            // 위치 서비스 사용 가능 여부 처리
+        }
+    };
 
     @Override
     public void onDestroy() {
@@ -77,6 +91,7 @@ public class LocationService extends Service {
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release(); // Wake Lock 해제
         }
+        fusedLocationClient.removeLocationUpdates(locationCallback);  // 이미 정의된 locationCallback을 사용
     }
 
     // 알림 생성 메서드
@@ -88,13 +103,13 @@ public class LocationService extends Service {
         return builder.build();
     }
 
+    // 위치 업데이트 요청
     private void getLocationUpdates() {
         locationRequest = new LocationRequest.Builder(5000)
                 .setMinUpdateIntervalMillis(2000)
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .build();
 
-        // 위치 업데이트 요청
         if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
                 ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             return; // 권한이 없는 경우 위치 업데이트를 요청하지 않음
@@ -107,10 +122,6 @@ public class LocationService extends Service {
                     return; // 위치 결과가 없는 경우
                 }
                 for (Location location : locationResult.getLocations()) {
-                    double latitude = location.getLatitude();
-                    double longitude = location.getLongitude();
-                    long timestamp = location.getTime(); // 현재 시간 가져오기
-                    String time = formatDate(timestamp); // 포맷팅
                     sendLocationToServer(location); // 위치 데이터와 시간을 서버로 전송
                 }
             }
@@ -199,4 +210,15 @@ public class LocationService extends Service {
         @POST("/api/location/update")
         Call<Void> updateLocation(@Body GpsData location);
     }
+
+    public static boolean isServiceRunning(Context context) {
+        ActivityManager manager = (ActivityManager) context.getSystemService(Context.ACTIVITY_SERVICE);
+        for (ActivityManager.RunningServiceInfo service : manager.getRunningServices(Integer.MAX_VALUE)) {
+            if (LocationService.class.getName().equals(service.service.getClassName())) {
+                return true;
+            }
+        }
+        return false;
+    }
+
 }

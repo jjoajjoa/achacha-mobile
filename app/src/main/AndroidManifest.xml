@@ -51,6 +51,14 @@
             </intent-filter>
         </service>
 
+        <receiver
+            android:name=".MyFirebaseReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.achacha_mobile.ACTION" />
+            </intent-filter>
+        </receiver>
+
     </application>
 
 </manifest>

@@ -5,8 +5,10 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -67,6 +69,7 @@ public class MainActivity extends AppCompatActivity {
     private static String CHANNEL_ID3 = "channel3";
     private static String CHANNEL_NAME3 = "Channel3";
 
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -74,14 +77,26 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", null); // 기본값 설정
-        Log.d("userId", userId);
         //웹뷰 설정
         webView = findViewById(R.id.webView);
         webView.setWebViewClient(new WebViewClient());
+
         webView.addJavascriptInterface(new WebAppInterface(this), "Android");
-        webView.getSettings().setJavaScriptEnabled(true);
-        webView.setSaveEnabled(true);
-        if(userId == null) {
+
+        // WebView의 설정
+        WebSettings webSettings = webView.getSettings();
+        webSettings.setJavaScriptEnabled(true);  // JavaScript 활성화
+        webSettings.setDomStorageEnabled(true);  // 로컬 스토리지 활성화 (웹 앱에서 로컬 스토리지 사용 시 필요)
+        webSettings.setAllowFileAccess(true);  // 파일 접근 허용
+        webSettings.setAllowContentAccess(true);  // 콘텐츠 접근 허용
+        webSettings.setUseWideViewPort(true);  // 웹 페이지에 맞는 화면 크기 설정
+        webSettings.setLoadWithOverviewMode(true);  // 페이지 로딩 방식 설정
+        webSettings.setSupportZoom(true);  // 줌 설정 허용 (모바일에서 유용)
+        webSettings.setBuiltInZoomControls(true);  // 기본 줌 컨트롤 활성화
+        webSettings.setDisplayZoomControls(false);  // 줌 컨트롤 UI를 숨기기
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);  // 캐시 모드 설정
+
+        if (userId == null) {
             webView.loadUrl("http://172.168.10.88:8080/applogin");
         } else {
             webView.loadUrl("http://172.168.10.88:8080/apphome");
@@ -118,26 +133,28 @@ public class MainActivity extends AppCompatActivity {
                 }
                 for (Location location : locationResult.getLocations()) {
                     Log.d(TAG, "New location: " + location.toString()); // 새로운 위치 로그
-                   // sendLocationToServer(location); -- 포그라운드 에서 실행 함 - 없어도 됨
+                    // sendLocationToServer(location); -- 포그라운드 에서 실행 함 - 없어도 됨
                 }
             }
         };
     }
 
-    private void startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
+    public void startLocationUpdates() {
+        // LocationService를 시작하여 위치 업데이트를 백그라운드에서 처리
+        if (!LocationService.isServiceRunning(this)) {
+            Intent serviceIntent = new Intent(this, LocationService.class);
+            startService(serviceIntent);  // 서비스 시작
+            Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "서비스가 이미 실행 중입니다.", Toast.LENGTH_SHORT).show();
         }
-        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
-        Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
-
     }
 
-    private void stopLocationUpdates() {
-        fusedLocationClient.removeLocationUpdates(locationCallback);
+    public void stopLocationUpdates() {
+        // LocationService 종료
+        Intent serviceIntent = new Intent(this, LocationService.class);
+        stopService(serviceIntent);  // 서비스 종료
         Toast.makeText(this, "위치 업데이트 중지", Toast.LENGTH_SHORT).show();
-
-        showEmergencyNoti();
     }
 
     void sendIdandToken(String userId, String token) {
@@ -210,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Firestore에 데이터 저장
         FirebaseFirestore.getInstance().collection("fcmTokens")
-                .document(userId) // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
+                .document("E001") // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
                 .set(deviceToken)
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Token successfully saved to Firestore."))
                 .addOnFailureListener(e -> Log.e(TAG, "Error saving token to Firestore: " + e.getMessage()));

@@ -1,8 +1,10 @@
 package com.achacha_mobile;
 
+import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.content.Context;
+import android.content.Intent;
 import android.os.Build;
 
 import androidx.core.app.NotificationCompat;
@@ -12,19 +14,35 @@ import com.google.firebase.messaging.RemoteMessage;
 
 public class MyFirebaseMessagingService extends FirebaseMessagingService {
     private static final String TAG = "FMS";
-
+    String CHANNEL_ID = "1";
     public MyFirebaseMessagingService() {
 
     }
 
-    private static final String CHANNEL_ID = "my_channel_id";
     @Override
     public void onMessageReceived(RemoteMessage remoteMessage) {
-        // 데이터 메시지를 수신한 경우
         if (remoteMessage.getData().size() > 0) {
-            String title = remoteMessage.getData().get("title");
-            String body = remoteMessage.getData().get("body");
-            sendNotification(title, body);
+            String action = remoteMessage.getData().get("action");
+
+            if ("startLocation".equals(action)) {
+                // FCM 메시지에서 시작 명령을 받으면 포그라운드 서비스로 실행
+                Intent serviceIntent = new Intent(this, LocationService.class);
+                serviceIntent.putExtra("action", "start");
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent);
+                } else {
+                    startService(serviceIntent);
+                }
+            } else if ("stopLocation".equals(action)) {
+                // FCM 메시지에서 중지 명령을 받으면 포그라운드 서비스로 실행
+                Intent serviceIntent = new Intent(this, LocationService.class);
+                serviceIntent.putExtra("action", "stop");
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    startForegroundService(serviceIntent);
+                } else {
+                    startService(serviceIntent);
+                }
+            }
         }
     }
 
@@ -33,11 +51,12 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 .setContentTitle(title)
                 .setContentText(messageBody)
                 .setAutoCancel(true)
-                .setPriority(NotificationCompat.PRIORITY_HIGH);
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                //.setSmallIcon(R.drawable.ic_notification)  // 알림 아이콘
+                ;
 
         NotificationManager notificationManager = (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
 
-        // 알림 채널 설정 (Android 8.0 이상)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel channel = new NotificationChannel(
                     CHANNEL_ID,
