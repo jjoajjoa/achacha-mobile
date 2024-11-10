@@ -7,24 +7,29 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.ImageFormat;
+import android.graphics.Rect;
+import android.graphics.YuvImage;
 import android.location.Location;
+import android.media.Image;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.SystemClock;
 import android.util.Log;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.Toast;
-import androidx.annotation.NonNull;
 
+import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
-import androidx.camera.core.impl.ImageAnalysisConfig;
-import androidx.camera.core.impl.PreviewConfig;
 import androidx.camera.lifecycle.ProcessCameraProvider;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
@@ -37,8 +42,15 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mediapipe.framework.image.BitmapImageBuilder;
+import com.google.mediapipe.framework.image.MPImage;
 import com.google.mediapipe.tasks.vision.core.RunningMode;
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker;
+import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult;
+import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions;
+import com.google.mediapipe.tasks.components.containers.NormalizedLandmark;
+
+import org.tensorflow.lite.support.image.ImageProperties;
 
 import retrofit2.Call;
 import retrofit2.Callback;
@@ -48,22 +60,24 @@ import retrofit2.converter.gson.GsonConverterFactory;
 import retrofit2.http.Body;
 import retrofit2.http.POST;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutionException;
 
-import com.google.mediapipe.framework.AndroidPacketCreator;
-import com.google.mediapipe.framework.Packet;
-import com.google.mediapipe.tasks.vision.face_landmarker.FaceLandmarker;
-import com.google.mediapipe.tasks.vision.face_landmarker.FaceLandmarkerOptions;
-import com.google.mediapipe.tasks.vision.face_landmarker.FaceLandmarkerResult;
 
-
+// Retrofit: GPS 데이터를 서버로 전송하는데 사용
+// FusedLocationProviderClient: 위치 서비스를 사용하여 GPS 정보를 가져옴
+// NotificationManager: 알림 처리
+// CameraX: 카메라 기능을 쉽게 사용할 수 있게 해주는 라이브러리
+// MediaPipe: 얼굴 랜드마크 추출을 위한 모델을 사용
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String BASE_URL = "http://172.168.30.145:9000/";
+    private static final String BASE_URL = "http://175.197.201.115:9000/";
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
@@ -84,7 +98,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-    
+
         //웹뷰 설정
         webView = findViewById(R.id.webView);
         webView.setWebViewClient(new WebViewClient()); // 링크 클릭 시 새 브라우저 열리지 않도록 설정
@@ -92,7 +106,7 @@ public class MainActivity extends AppCompatActivity {
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://172.168.30.145:8080/"); // 링크
+        webView.loadUrl("http://175.197.201.115:8080/"); // 링크
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -246,21 +260,18 @@ public class MainActivity extends AppCompatActivity {
 
     } //showStartNoti
 
+    // FaceLandmarker 객체를 생성하고, face_landmark.tflite 모델 파일을 로드
     private void loadModel() throws IOException {
-        // FaceLandmarkerOptions 객체를 생성하는 Builder 사용
-        FaceLandmarker.FaceLandmarkerOptions options =
-                new FaceLandmarker.FaceLandmarkerOptions.Builder()
-                        .setRunningMode(RunningMode.LIVE_STREAM) // 실시간 모드 설정
-                        .build();
-
-        // assets 폴더에서 face_landmark.tflite 모델 파일을 로드
         faceLandmarker = FaceLandmarker.createFromFile(
                 this,
-                "face_landmark.tflite",
-                options
+                "face_landmark.tflite"
         );
     }
 
+    // 카메라를 초기화하고, 카메라 프리뷰와 이미지 분석을 설정
+    // ProcessCameraProvider를 사용하여 카메라를 바인딩
+    // ImageAnalysis를 사용하여 카메라에서 캡처된 이미지를 분석하고, 얼굴 랜드마크를 감지
+    // imageToBitmap() 메서드에서 ImageProxy를 Bitmap으로 변환하고, 이를 MediaPipe에서 처리할 수 있도록 MPImage로 변환
     private void startCamera() {
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
@@ -269,32 +280,24 @@ public class MainActivity extends AppCompatActivity {
 
                 Preview preview = new Preview.Builder().build();
                 CameraSelector cameraSelector = new CameraSelector.Builder()
-                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT) // 전면 카메라 사용
+                        .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                         .build();
 
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                         .build();
 
-                imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), new ImageAnalysis.Analyzer() {
-                    @OptIn(markerClass = com.google.mediapipe.tasks.vision.core.ImageProcessingOptions.class)
-                    @Override
-                    public void analyze(@NonNull ImageProxy image) {
-                        // 이미지 분석 처리 - MediaPipe로 전송
-                        if (faceLandmarker != null) {
-                            com.google.mediapipe.tasks.vision.core.ImageProcessingOptions imageProcessingOptions =
-                                    com.google.mediapipe.tasks.vision.core.ImageProcessingOptions.builder().build();
+                imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), image -> {
+                    if (faceLandmarker != null) {
+                        Bitmap bitmap = imageToBitmap(image);
+                        MPImage mpImage = new BitmapImageBuilder(bitmap).build();
 
-                            faceLandmarker.process(image.getImage(), imageProcessingOptions)
-                                    .addOnSuccessListener(result -> {
-                                        // 여기에서 눈꺼풀 추적 결과를 사용할 수 있습니다.
-                                        Log.d(TAG, "Face landmarks detected: " + result.size());
-                                        // 추적 결과에 대한 추가 처리
+                        // 얼굴 랜드마크 추출 및 분석
+                        FaceLandmarkerResult result = faceLandmarker.detect(mpImage);
+                        analyzeFaceLandmarks(result);
 
-                                    })
-                                    .addOnFailureListener(Throwable::printStackTrace)
-                                    .addOnCompleteListener(task -> image.close()); // 이미지 리소스 해제
-                        }
+                        // 이미지 리소스 해제
+                        image.close();
                     }
                 });
 
@@ -306,4 +309,72 @@ public class MainActivity extends AppCompatActivity {
     }
 
 
-    } //MainActivity
+    // ImageProxy에서 YUV 이미지 데이터를 추출하고 이를 Bitmap으로 변환
+    // YuvImage를 사용하여 NV21 포맷의 이미지를 JPEG로 변환하고, 이를 BitmapFactory로 디코딩하여 Bitmap 객체를 반환
+    // 변환된 Bitmap은 얼굴 랜드마크를 추출하는 데 사용
+    private Bitmap imageToBitmap(ImageProxy image) {
+        ImageProxy.PlaneProxy[] planes = image.getPlanes();
+        ByteBuffer yBuffer = planes[0].getBuffer();
+        ByteBuffer uBuffer = planes[1].getBuffer();
+        ByteBuffer vBuffer = planes[2].getBuffer();
+
+        int ySize = yBuffer.remaining();
+        int uSize = uBuffer.remaining();
+        int vSize = vBuffer.remaining();
+
+        byte[] nv21 = new byte[ySize + uSize + vSize];
+        yBuffer.get(nv21, 0, ySize);
+        vBuffer.get(nv21, ySize, vSize);
+        uBuffer.get(nv21, ySize + vSize, uSize);
+
+        YuvImage yuvImage = new YuvImage(nv21, ImageFormat.NV21, image.getWidth(), image.getHeight(), null);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        yuvImage.compressToJpeg(new Rect(0, 0, yuvImage.getWidth(), yuvImage.getHeight()), 100, out);
+        byte[] imageBytes = out.toByteArray();
+        return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+    }
+
+    // 얼굴 랜드마크 분석 메서드
+    private void analyzeFaceLandmarks(FaceLandmarkerResult result) {
+        if (result.faceLandmarks().isEmpty()) {
+            Log.d(TAG, "얼굴이 감지되지 않았습니다.");
+            return;
+        }
+
+        List<NormalizedLandmark> faceLandmarks = result.faceLandmarks().get(0);
+
+        // 왼쪽 눈과 오른쪽 눈의 랜드마크 추출
+        List<NormalizedLandmark> leftEyeLandmarks = getLeftEyeLandmarks(faceLandmarks);
+        List<NormalizedLandmark> rightEyeLandmarks = getRightEyeLandmarks(faceLandmarks);
+
+        // 눈 감김 상태 확인
+        boolean isLeftEyeClosed = isEyeClosed(leftEyeLandmarks);
+        Log.d(TAG, "왼쪽 눈 상태: " + (isLeftEyeClosed ? "감김" : "열림"));
+
+        boolean isRightEyeClosed = isEyeClosed(rightEyeLandmarks);
+        Log.d(TAG, "오른쪽 눈 상태: " + (isRightEyeClosed ? "감김" : "열림"));
+
+        // 두 눈이 모두 감겼다면, 토스트 메시지 표시
+        if (isLeftEyeClosed && isRightEyeClosed) {
+            Toast.makeText(this, "눈을 감았어요!", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    // 눈 감김 여부 확인 (눈꺼풀 사이의 Y 좌표 차이로 판단)
+    private boolean isEyeClosed(List<NormalizedLandmark> eyeLandmarks) {
+        float upperY = eyeLandmarks.get(1).y();
+        float lowerY = eyeLandmarks.get(5).y();
+        return (lowerY - upperY) < 0.03f;  // 눈이 감긴 상태를 판단하는 기준
+    }
+
+    // 왼쪽 눈 랜드마크 추출
+    private List<NormalizedLandmark> getLeftEyeLandmarks(List<NormalizedLandmark> faceLandmarks) {
+        return faceLandmarks.subList(362, 374);
+    }
+
+    // 오른쪽 눈 랜드마크 추출
+    private List<NormalizedLandmark> getRightEyeLandmarks(List<NormalizedLandmark> faceLandmarks) {
+        return faceLandmarks.subList(133, 145);
+    }
+
+} //MainActivity

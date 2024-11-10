@@ -60,7 +60,6 @@ dependencies {
     implementation("com.google.ai.edge.litert:litert-gpu:1.0.1")
     implementation("com.google.ai.edge.litert:litert-metadata:1.0.1")
     implementation("com.google.ai.edge.litert:litert-support:1.0.1")
-    implementation("com.google.mediapipe:mediapipe-android:0.8.10")
-    implementation("com.google.mediapipe:tasks-vision:0.8.10")
+    implementation("com.google.mediapipe:tasks-vision:0.10.14")
 
 }
