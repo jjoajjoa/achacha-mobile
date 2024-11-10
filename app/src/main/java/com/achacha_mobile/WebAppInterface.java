@@ -3,6 +3,7 @@ package com.achacha_mobile;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.util.Log;
 import android.webkit.JavascriptInterface;
 
 import java.io.File;
@@ -19,12 +20,15 @@ public class WebAppInterface {
     // 데이터 영구 저장
     @JavascriptInterface
     public void saveCredentials(String employeeUniqueNumber, String employeePassword) {
+        Log.d("app", "로그인 함수 실행됨");
         // 로그인 정보를 SharedPreferences에 저장
         SharedPreferences sharedPreferences = mContext.getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
         editor.putString("userId", employeeUniqueNumber);
         editor.putString("password", employeePassword);
         editor.apply();
+
+        Log.d("userId", "저장된 userId: " + employeeUniqueNumber);
 
         ((MainActivity) mContext).fetchFCMToken();
         // 필요하다면 서버에 로그인 정보를 전송하는 메서드를 호출할 수 있습니다. - 자동로그인

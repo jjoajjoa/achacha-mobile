@@ -99,6 +99,7 @@ public class MainActivity extends AppCompatActivity {
         if (userId == null) {
             webView.loadUrl("http://172.168.10.88:8080/applogin");
         } else {
+            Log.d("userId",userId);
             webView.loadUrl("http://172.168.10.88:8080/apphome");
         }
 
