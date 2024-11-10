@@ -228,7 +228,7 @@ public class MainActivity extends AppCompatActivity {
 
         // Firestore에 데이터 저장
         FirebaseFirestore.getInstance().collection("fcmTokens")
-                .document("E001") // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
+                .document(userId) // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
                 .set(deviceToken)
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Token successfully saved to Firestore."))
                 .addOnFailureListener(e -> Log.e(TAG, "Error saving token to Firestore: " + e.getMessage()));
