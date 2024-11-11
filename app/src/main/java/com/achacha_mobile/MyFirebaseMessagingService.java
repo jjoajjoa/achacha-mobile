@@ -38,9 +38,9 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                 Intent serviceIntent = new Intent(this, LocationService.class);
                 serviceIntent.putExtra("action", "stop");
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    startForegroundService(serviceIntent);
+                    stopForeground(serviceIntent.hasFileDescriptors());
                 } else {
-                    startService(serviceIntent);
+                    stopService(serviceIntent);
                 }
             }
         }

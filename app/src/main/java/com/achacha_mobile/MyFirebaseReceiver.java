@@ -29,9 +29,9 @@ public class MyFirebaseReceiver extends BroadcastReceiver {
             Intent serviceIntent = new Intent(context, LocationService.class);
             // 포그라운드 서비스로 시작하기 위해 startForegroundService 사용
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                context.startForegroundService(serviceIntent);  // Android 8.0 이상에서는 startForegroundService 사용
+                context.startForegroundService(serviceIntent);
             } else {
-                context.startService(serviceIntent);  // 이전 버전에서는 startService 사용
+                context.startService(serviceIntent);
             }
         }
     }

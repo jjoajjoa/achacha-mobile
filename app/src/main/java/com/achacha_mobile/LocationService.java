@@ -68,9 +68,17 @@ public class LocationService extends Service {
 
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
-        // 포그라운드 서비스로 시작
-        startForeground(1, getNotification());
-        return START_STICKY; // 서비스가 종료된 경우 재시작
+        String action = intent.getStringExtra("action");
+
+        if ("start".equals(action)) {
+            startForeground(1, createNotification()); // 알림 생성
+        } else if ("stop".equals(action)) {
+            // 알림을 제거하고 서비스 종료
+            stopForeground(true); // 알림 제거
+            stopSelf(); // 서비스 종료
+        }
+
+        return START_NOT_STICKY;
     }
 
     LocationCallback locationCallback = new LocationCallback() {
@@ -92,6 +100,16 @@ public class LocationService extends Service {
             wakeLock.release(); // Wake Lock 해제
         }
         fusedLocationClient.removeLocationUpdates(locationCallback);  // 이미 정의된 locationCallback을 사용
+        stopLocationUpdates();
+    }
+
+    // 위치 업데이트 중지
+    public void stopLocationUpdates() {
+        fusedLocationClient.removeLocationUpdates(locationCallback);
+
+        // 위치 업데이트가 중지되면 서비스도 종료
+        stopForeground(true);  // 포그라운드 서비스 종료
+        stopSelf();  // 서비스 종료
     }
 
     // 알림 생성 메서드
