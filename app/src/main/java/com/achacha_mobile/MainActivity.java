@@ -37,6 +37,7 @@ import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
 
+import com.achacha_mobile.utility.PermissionUtility;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
@@ -104,6 +105,9 @@ public class MainActivity extends AppCompatActivity {
     private static String CHANNEL_ID = "channel";
     private static String CHANNEL_NAME = "Channel";
 
+    // 권한 요청 코드
+    private static final int PERMISSION_REQUEST_CODE = 100;
+
     // 카메라 권한 요청 코드
     private static final int CAMERA_PERMISSION_REQUEST_CODE = 1001;
 
@@ -151,10 +155,27 @@ public class MainActivity extends AppCompatActivity {
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .build();
 
+        // 카메라 권한 요청
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+            // 권한이 없으면 권한 요청
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+        } else {
+            // 권한이 이미 있으면 카메라 열기
+            startCamera();
+        }
+
         // 위치 권한 요청
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
         }
+
+        ////////////////////////////////////////////////////////////////////////////
+        // 필요한 권한 배열 생성
+        String[] permissions = {Manifest.permission.CAMERA, Manifest.permission.ACCESS_FINE_LOCATION};
+
+        // 권한 요청
+        PermissionUtility.requestPermissions(this, permissions);
+        ////////////////////////////////////////////////////////////////////////////
 
         Button startButton = findViewById(R.id.start_button);
         Button stopButton = findViewById(R.id.stop_button);
@@ -179,36 +200,44 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        // 카메라 권한 체크
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            // 권한이 없으면 권한 요청
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
-        } else {
-            // 권한이 이미 있으면 카메라 열기
-            startCamera();
-        }
-
         // MediaPipe 모델 초기화
         loadModel();
 
     } //onCreate
 
-    // 카메라 권한 설정
+    ////////////////////////////////////////////////////////////////////////////
+    // 권한 요청 결과 처리
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
 
-        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // 권한이 허용되었을 때 카메라 열기
+        if (requestCode == PermissionUtility.PERMISSION_REQUEST_CODE) {
+            if (PermissionUtility.arePermissionsGranted(grantResults)) {
+                // 모든 권한이 승인된 경우 기능 실행
                 startCamera();
+                startLocationUpdates();
             } else {
-                // 권한이 거부되었을 때 처리 (예: 알림, 종료 등)
-                Toast.makeText(this, "카메라 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
+                // 권한이 승인되지 않은 경우 처리 (예: 사용자에게 권한이 필요하다는 알림)
             }
         }
     }
+    ////////////////////////////////////////////////////////////////////////////
+
+//    // 카메라 권한 설정
+//    @Override
+//    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+//        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+//
+//        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+//            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+//                // 권한이 허용되었을 때 카메라 열기
+//                startCamera();
+//            } else {
+//                // 권한이 거부되었을 때 처리 (예: 알림, 종료 등)
+//                Toast.makeText(this, "카메라 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
+//            }
+//        }
+//    }
 
     public void startLocationUpdates() {
         // LocationService를 시작하여 위치 업데이트를 백그라운드에서 처리
