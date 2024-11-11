@@ -17,6 +17,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    sourceSets {
+        getByName("main") {
+            assets.srcDirs("src/main/assets")  // assets 폴더 경로 설정
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -61,5 +67,6 @@ dependencies {
     implementation("com.google.ai.edge.litert:litert-metadata:1.0.1")
     implementation("com.google.ai.edge.litert:litert-support:1.0.1")
     implementation("com.google.mediapipe:tasks-vision:0.10.14")
+    implementation("com.google.mlkit:face-detection:16.1.5")
 
 }

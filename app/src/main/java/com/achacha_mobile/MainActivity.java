@@ -42,6 +42,7 @@ import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.mediapipe.framework.MediaPipeException;
 import com.google.mediapipe.framework.image.BitmapImageBuilder;
 import com.google.mediapipe.framework.image.MPImage;
 import com.google.mediapipe.tasks.vision.core.RunningMode;
@@ -77,7 +78,7 @@ import java.util.concurrent.ExecutionException;
 // MediaPipe: 얼굴 랜드마크 추출을 위한 모델을 사용
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String BASE_URL = "http://175.197.201.115:9000/";
+    private static final String BASE_URL = "http://172.168.30.184:9000/";
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
@@ -90,6 +91,9 @@ public class MainActivity extends AppCompatActivity {
     NotificationManager manager;
     private static String CHANNEL_ID = "channel";
     private static String CHANNEL_NAME = "Channel";
+
+    // 카메라 권한 요청 코드
+    private static final int CAMERA_PERMISSION_REQUEST_CODE = 1001;
 
     // MediaPipe - 객체인식
     private FaceLandmarker faceLandmarker;
@@ -106,7 +110,7 @@ public class MainActivity extends AppCompatActivity {
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://175.197.201.115:8080/"); // 링크
+        webView.loadUrl("http://172.168.30.184:8080/"); // 링크
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -144,17 +148,36 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-        // 카메라 시작
-        startCamera();
-
-        // MediaPipe 모델 초기화
-        try {
-            loadModel();
-        } catch (IOException e) {
-            e.printStackTrace();
+        // 카메라 권한 체크
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            // 권한이 없으면 권한 요청
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.CAMERA}, CAMERA_PERMISSION_REQUEST_CODE);
+        } else {
+            // 권한이 이미 있으면 카메라 열기
+            startCamera();
         }
 
+        // MediaPipe 모델 초기화
+        loadModel();
+
     } //onCreate
+
+    // 카메라 권한 설정
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == CAMERA_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // 권한이 허용되었을 때 카메라 열기
+                startCamera();
+            } else {
+                // 권한이 거부되었을 때 처리 (예: 알림, 종료 등)
+                Toast.makeText(this, "카메라 권한이 필요합니다.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
 
     private void startLocationUpdates() {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
@@ -261,11 +284,19 @@ public class MainActivity extends AppCompatActivity {
     } //showStartNoti
 
     // FaceLandmarker 객체를 생성하고, face_landmark.tflite 모델 파일을 로드
-    private void loadModel() throws IOException {
-        faceLandmarker = FaceLandmarker.createFromFile(
-                this,
-                "face_landmark.tflite"
-        );
+    private void loadModel() {
+        try {
+            faceLandmarker = FaceLandmarker.createFromFile(this, "face_landmark.tflite");
+            if (faceLandmarker == null) {
+                Log.e(TAG, "FaceLandmarker is null after loading model.");
+            } else {
+                Log.d(TAG, "Model loaded successfully.");
+            }
+        } catch (MediaPipeException e) {  // MediaPipe 관련 예외 처리
+            Log.e(TAG, "MediaPipe error loading model: " + e.getMessage());
+        } catch (Exception e) {  // 다른 예외 처리
+            Log.e(TAG, "Error loading model: " + e.getMessage());
+        }
     }
 
     // 카메라를 초기화하고, 카메라 프리뷰와 이미지 분석을 설정
@@ -341,6 +372,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        Log.d(TAG, "얼굴 감지됨, 랜드마크 분석 시작");
         List<NormalizedLandmark> faceLandmarks = result.faceLandmarks().get(0);
 
         // 왼쪽 눈과 오른쪽 눈의 랜드마크 추출
@@ -356,6 +388,7 @@ public class MainActivity extends AppCompatActivity {
 
         // 두 눈이 모두 감겼다면, 토스트 메시지 표시
         if (isLeftEyeClosed && isRightEyeClosed) {
+            Log.d(TAG, "두 눈이 감겼습니다. 토스트를 표시합니다.");
             Toast.makeText(this, "눈을 감았어요!", Toast.LENGTH_SHORT).show();
         }
     }
