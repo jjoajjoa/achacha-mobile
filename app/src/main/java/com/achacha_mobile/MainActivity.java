@@ -5,8 +5,10 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.location.Location;
@@ -39,7 +41,12 @@ import retrofit2.http.Body;
 import retrofit2.http.POST;
 
 import androidx.annotation.NonNull;
+import androidx.webkit.internal.ApiFeature;
 
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -59,23 +66,42 @@ public class MainActivity extends AppCompatActivity {
 
     // 외부 알림
     NotificationManager manager;
-
     private static String CHANNEL_ID3 = "channel3";
     private static String CHANNEL_NAME3 = "Channel3";
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-    
+
+        SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", null); // 기본값 설정
         //웹뷰 설정
         webView = findViewById(R.id.webView);
-        webView.setWebViewClient(new WebViewClient()); // 링크 클릭 시 새 브라우저 열리지 않도록 설정
-        webView.addJavascriptInterface(new WebAppInterface(this), "Android"); // 웹앱 인터페이스 안에 있는 함수를 실행 시킬 수 있음
-        // 웹 설정
+        webView.setWebViewClient(new WebViewClient());
+
+        webView.addJavascriptInterface(new WebAppInterface(this), "Android");
+
+        // WebView의 설정
         WebSettings webSettings = webView.getSettings();
-        webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://172.168.10.88:8080/apphome"); // 링크
+        webSettings.setJavaScriptEnabled(true);  // JavaScript 활성화
+        webSettings.setDomStorageEnabled(true);  // 로컬 스토리지 활성화 (웹 앱에서 로컬 스토리지 사용 시 필요)
+        webSettings.setAllowFileAccess(true);  // 파일 접근 허용
+        webSettings.setAllowContentAccess(true);  // 콘텐츠 접근 허용
+        webSettings.setUseWideViewPort(true);  // 웹 페이지에 맞는 화면 크기 설정
+        webSettings.setLoadWithOverviewMode(true);  // 페이지 로딩 방식 설정
+        webSettings.setSupportZoom(true);  // 줌 설정 허용 (모바일에서 유용)
+        webSettings.setBuiltInZoomControls(true);  // 기본 줌 컨트롤 활성화
+        webSettings.setDisplayZoomControls(false);  // 줌 컨트롤 UI를 숨기기
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);  // 캐시 모드 설정
+
+        if (userId == null) {
+            webView.loadUrl("http://172.168.10.88:8080/applogin");
+        } else {
+            Log.d("userId",userId);
+            webView.loadUrl("http://172.168.10.88:8080/apphome");
+        }
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -108,34 +134,64 @@ public class MainActivity extends AppCompatActivity {
                 }
                 for (Location location : locationResult.getLocations()) {
                     Log.d(TAG, "New location: " + location.toString()); // 새로운 위치 로그
-                   // sendLocationToServer(location); -- 포그라운드 에서 실행 함 - 없어도 됨
+                    // sendLocationToServer(location); -- 포그라운드 에서 실행 함 - 없어도 됨
                 }
             }
         };
-        // 토큰 가져오기
-        fetchFCMToken();
     }
 
-    private void startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
+    public void startLocationUpdates() {
+        // LocationService를 시작하여 위치 업데이트를 백그라운드에서 처리
+        if (!LocationService.isServiceRunning(this)) {
+            Intent serviceIntent = new Intent(this, LocationService.class);
+            startService(serviceIntent);  // 서비스 시작
+            Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "서비스가 이미 실행 중입니다.", Toast.LENGTH_SHORT).show();
         }
         fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
         Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
     }
 
-    private void stopLocationUpdates() {
-        fusedLocationClient.removeLocationUpdates(locationCallback);
+    public void stopLocationUpdates() {
+        // LocationService 종료
+        Intent serviceIntent = new Intent(this, LocationService.class);
+        stopService(serviceIntent);  // 서비스 종료
         Toast.makeText(this, "위치 업데이트 중지", Toast.LENGTH_SHORT).show();
-        showEmergencyNoti();
     }
+
+    void sendIdandToken(String userId, String token) {
+        try {
+            // URL에 쿼리 매개변수 추가
+            String urlString = String.format("%s/noti/sendToken?userId=%s&token=%s",
+                    BASE_URL,
+                    URLEncoder.encode(userId, "UTF-8"),
+                    URLEncoder.encode(token, "UTF-8"));
+
+            URL url = new URL(urlString);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection(); // 연결 생성
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Content-Type", "application/json"); // 헤더 설정
+
+            // 응답 코드 확인
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                System.out.println("전송 성공");
+            } else {
+                System.out.println("전송 실패: " + responseCode);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
 
     interface ApiService {
         @POST("/api/location/update")
         Call<Void> updateLocation(@Body GpsData location);
     }
 
-    private void fetchFCMToken() {
+    void fetchFCMToken() {
         FirebaseMessaging.getInstance().getToken()
                 .addOnCompleteListener(new OnCompleteListener<String>() {
                     @Override
@@ -166,9 +222,15 @@ public class MainActivity extends AppCompatActivity {
         deviceToken.put("token", token);
         deviceToken.put("timestamp", FieldValue.serverTimestamp());
 
+        // 사용자 아이디 가져오기
+        SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", "defaultUser"); // 기본값 설정
+
+        sendIdandToken(token, userId);
+
         // Firestore에 데이터 저장
         FirebaseFirestore.getInstance().collection("fcmTokens")
-                .document("seheon") // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
+                .document(userId) // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
                 .set(deviceToken)
                 .addOnSuccessListener(aVoid -> Log.d(TAG, "Token successfully saved to Firestore."))
                 .addOnFailureListener(e -> Log.e(TAG, "Error saving token to Firestore: " + e.getMessage()));
