@@ -5,7 +5,9 @@ import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
+import android.content.Context;
 import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -41,7 +43,12 @@ import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
+import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.tasks.Task;
 import com.google.common.util.concurrent.ListenableFuture;
+import com.google.firebase.firestore.FieldValue;
+import com.google.firebase.firestore.FirebaseFirestore;
+import com.google.firebase.messaging.FirebaseMessaging;
 import com.google.mediapipe.framework.MediaPipeException;
 import com.google.mediapipe.framework.image.BitmapImageBuilder;
 import com.google.mediapipe.framework.image.MPImage;
@@ -63,11 +70,16 @@ import retrofit2.http.POST;
 
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.net.URLEncoder;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.concurrent.ExecutionException;
 
 
@@ -103,14 +115,33 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
+        SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", null); // 기본값 설정
+
         //웹뷰 설정
         webView = findViewById(R.id.webView);
         webView.setWebViewClient(new WebViewClient()); // 링크 클릭 시 새 브라우저 열리지 않도록 설정
         webView.addJavascriptInterface(new WebAppInterface(this), "Android"); // 웹앱 인터페이스 안에 있는 함수를 실행 시킬 수 있음 - 일단 토스트로
+
         // 웹 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true); // JavaScript 사용 가능하게 설정
-        webView.loadUrl("http://172.168.30.184:8080/"); // 링크
+        webSettings.setDomStorageEnabled(true);  // 로컬 스토리지 활성화 (웹 앱에서 로컬 스토리지 사용 시 필요)
+        webSettings.setAllowFileAccess(true);  // 파일 접근 허용
+        webSettings.setAllowContentAccess(true);  // 콘텐츠 접근 허용
+        webSettings.setUseWideViewPort(true);  // 웹 페이지에 맞는 화면 크기 설정
+        webSettings.setLoadWithOverviewMode(true);  // 페이지 로딩 방식 설정
+        webSettings.setSupportZoom(true);  // 줌 설정 허용 (모바일에서 유용)
+        webSettings.setBuiltInZoomControls(true);  // 기본 줌 컨트롤 활성화
+        webSettings.setDisplayZoomControls(false);  // 줌 컨트롤 UI를 숨기기
+        webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);  // 캐시 모드 설정
+
+        if (userId == null) {
+            webView.loadUrl("http://172.168.30.184:8080/applogin");
+        } else {
+            Log.d("userId",userId);
+            webView.loadUrl("http://172.168.30.184:8080/apphome");
+        }
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
 
@@ -179,18 +210,99 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void startLocationUpdates() {
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return;
+    public void startLocationUpdates() {
+        // LocationService를 시작하여 위치 업데이트를 백그라운드에서 처리
+        if (!LocationService.isServiceRunning(this)) {
+            Intent serviceIntent = new Intent(this, LocationService.class);
+            startService(serviceIntent);  // 서비스 시작
+            Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
+        } else {
+            Toast.makeText(this, "서비스가 이미 실행 중입니다.", Toast.LENGTH_SHORT).show();
         }
-        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
+//        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
         Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
-        showStartNoti();
     }
 
-    private void stopLocationUpdates() {
-        fusedLocationClient.removeLocationUpdates(locationCallback);
+    public void stopLocationUpdates() {
+        // LocationService 종료
+        Intent serviceIntent = new Intent(this, LocationService.class);
+        stopService(serviceIntent);  // 서비스 종료
         Toast.makeText(this, "위치 업데이트 중지", Toast.LENGTH_SHORT).show();
+    }
+
+    void sendIdandToken(String userId, String token) {
+        try {
+            // URL에 쿼리 매개변수 추가
+            String urlString = String.format("%s/noti/sendToken?userId=%s&token=%s",
+                    BASE_URL,
+                    URLEncoder.encode(userId, "UTF-8"),
+                    URLEncoder.encode(token, "UTF-8"));
+
+            URL url = new URL(urlString);
+            HttpURLConnection connection = (HttpURLConnection) url.openConnection(); // 연결 생성
+            connection.setRequestMethod("GET");
+            connection.setRequestProperty("Content-Type", "application/json"); // 헤더 설정
+
+            // 응답 코드 확인
+            int responseCode = connection.getResponseCode();
+            if (responseCode == HttpURLConnection.HTTP_OK) {
+                System.out.println("전송 성공");
+            } else {
+                System.out.println("전송 실패: " + responseCode);
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    interface ApiService {
+        @POST("/api/location/update")
+        Call<Void> updateLocation(@Body GpsData location);
+    }
+
+    void fetchFCMToken() {
+        FirebaseMessaging.getInstance().getToken()
+                .addOnCompleteListener(new OnCompleteListener<String>() {
+                    @Override
+                    public void onComplete(@NonNull Task<String> task) {
+                        if (!task.isSuccessful()) {
+                            Log.w(TAG, "Fetching FCM registration token failed", task.getException());
+                            return;
+                        }
+
+                        // Get new FCM registration token
+                        String token = task.getResult();
+                        // 이 토큰으로 기기 인식 시키고 알람보낼 때 확인 할 수 있게 함
+
+                        // Log and toast
+                        String msg = "FCM Token: " + token;
+                        Log.d(TAG, msg);
+
+                        // 토큰을 서버에 전송
+                        sendTokenToServer(token);
+                    }
+                });
+    }
+
+    //데이터베이스로 보내는 함수
+    private void sendTokenToServer(String token) {
+        // 토큰과 타임스탬프를 담을 맵 생성
+        Map<String, Object> deviceToken = new HashMap<>();
+        deviceToken.put("token", token);
+        deviceToken.put("timestamp", FieldValue.serverTimestamp());
+
+        // 사용자 아이디 가져오기
+        SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", "defaultUser"); // 기본값 설정
+
+        sendIdandToken(token, userId);
+
+        // Firestore에 데이터 저장
+        FirebaseFirestore.getInstance().collection("fcmTokens")
+                .document(userId) // 여기에 저장됨 - 나중에 로그인 하면 그 아이디로 저장
+                .set(deviceToken)
+                .addOnSuccessListener(aVoid -> Log.d(TAG, "Token successfully saved to Firestore."))
+                .addOnFailureListener(e -> Log.e(TAG, "Error saving token to Firestore: " + e.getMessage()));
     }
 
     private void sendLocationToServer(Location location) {
@@ -207,8 +319,11 @@ public class MainActivity extends AppCompatActivity {
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
+        SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
+        String userId = sharedPreferences.getString("userId", null); // 기본값 설정
+
         ApiService apiService = retrofit.create(ApiService.class);
-        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time);
+        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time, userId);
 
         Call<Void> call = apiService.updateLocation(gpsData);
         call.enqueue(new Callback<Void>() {
@@ -235,10 +350,7 @@ public class MainActivity extends AppCompatActivity {
         return sdf.format(date);
     }
 
-    interface ApiService {
-        @POST("/api/location/update")
-        Call<Void> updateLocation(@Body GpsData location);
-    }
+
 
     // 알림 함수
     public void showStartNoti() {

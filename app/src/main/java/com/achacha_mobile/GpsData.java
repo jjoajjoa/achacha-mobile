@@ -21,6 +21,9 @@ public class GpsData {
     @SerializedName("gpsLogTime")
     private String time; // 시간
 
+    @SerializedName("employeeId")
+    private String employeeId; // 유저 id
+
     // Double을 사용하는 이유
     // null 값을 허용하지 않는 경우에는 double을 사용해야 하지만, API 요청을 위해 null을 허용해야 한다면 Double로 변경하는 것이 더 적합
 
@@ -31,13 +34,14 @@ public class GpsData {
         this.time = time;
     }
 
-    public GpsData(Double latitude, Double longitude, Double altitude, Double speed, Double accuracy, String time) {
+    public GpsData(Double latitude, Double longitude, Double altitude, Double speed, Double accuracy, String time, String userId) {
         this.latitude = latitude;
         this.longitude = longitude;
         this.altitude = altitude;
         this.speed = speed;
         this.accuracy = accuracy;
         this.time = time;
+        this.employeeId = userId;
     }
 
     // Getter와 Setter
@@ -85,7 +89,9 @@ public class GpsData {
         return time;
     }
 
-    public void setTime(String time) {
-        this.time = time;
-    }
+    public void setTime(String time) { this.time = time; }
+
+    public void setEmployeeId(String employeeId) {this.employeeId = employeeId;}
+
+    public String getEmployeeId() {return employeeId;}
 }
