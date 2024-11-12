@@ -91,18 +91,17 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
                         Log.e(TAG, "지원하지 않는 언어");
                     } else {
                         // 받은 메시지를 TTS로 읽기
+                        Log.d(TAG, "TTS 초기화 성공, 메시지 읽기 시작");
                         textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
                         // TTS 실행 중에 포그라운드 서비스 시작
                         //startForegroundService(new Intent(this, ForegroundService.class));
                     }
                 } else {
-                    // 이미 TTS 객체가 있으면 바로 음성 출력
-                    textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
                     Log.e(TAG, "TTS 초기화 실패");
                 }
             });
         } else {
-            // 이미 TTS 객체가 있으면 바로 음성 출력
+            Log.d(TAG, "TTS 객체 이미 존재, 바로 메시지 읽기");
             textToSpeech.speak(message, TextToSpeech.QUEUE_FLUSH, null, null);
         }
     }
@@ -110,8 +109,12 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
     @Override
     public void onDestroy() {
         if (textToSpeech != null) {
-            textToSpeech.stop();
-            textToSpeech.shutdown(); // 리소스 해제
+            try {
+                textToSpeech.stop(); // TTS가 초기화된 후 stop() 호출
+                textToSpeech.shutdown(); // TTS 리소스 해제
+            } catch (Exception e) {
+                Log.e(TAG, "TTS 리소스 해제 중 오류 발생: " + e.getMessage());
+            }
         }
         super.onDestroy();
     }
