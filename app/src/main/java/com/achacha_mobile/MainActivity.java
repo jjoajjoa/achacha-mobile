@@ -143,6 +143,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
            // Toast.makeText(this, "서비스가 이미 실행 중입니다.", Toast.LENGTH_SHORT).show();
         }
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
+        Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
     }
 
     public void stopLocationUpdates() {
