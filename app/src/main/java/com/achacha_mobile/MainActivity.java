@@ -1,17 +1,12 @@
 package com.achacha_mobile;
 
-import android.Manifest;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
 import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
-import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
-import android.location.Location;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -23,13 +18,11 @@ import android.widget.Button;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.location.LocationCallback;
 import com.google.android.gms.location.LocationRequest;
-import com.google.android.gms.location.LocationResult;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.location.Priority;
 import com.google.android.gms.tasks.OnCompleteListener;
@@ -41,9 +34,7 @@ import retrofit2.http.Body;
 import retrofit2.http.POST;
 
 import androidx.annotation.NonNull;
-import androidx.webkit.internal.ApiFeature;
 
-import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
@@ -60,6 +51,7 @@ public class MainActivity extends AppCompatActivity {
     private static final String BASE_URL = "http://172.168.10.88:9000/";
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1; // 위치 권한 성공 했다는 코드 (지오팬스)
+    private GeofenceHelper geofenceHelper;
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
@@ -78,6 +70,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+        // 지오펜스 위치 설정 ----------------------------------------------------------
+        geofenceHelper = new GeofenceHelper(this);
+        List<GeofenceData> geofenceDataList = new ArrayList<>();
+        // ( 고유 Id , 경도, 위도 , 거리 ( 100f = 100미터 ) )  위치 오류가 20미터씩 나기 떄문에 100미터는 설정 해야 된다고 권장
+        geofenceDataList.add(new GeofenceData("1", 37.516123, 127.035089, 10f)); // 공간정보 아카데미 반경 10미터
+        geofenceDataList.add(new GeofenceData("2", 37.514544, 127.032107, 80f)); // 학동역
+
+        // GeofenceHelper로 지오펜스 추가
+        geofenceHelper.addGeofences(this, geofenceDataList);
+
+        // GeofenceService와 LocationService 시작
+        Intent locationServiceIntent = new Intent(this, LocationService.class);
+        startService(locationServiceIntent);
+
+        //--------------------------------------------------------------------
 
         SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", null); // 기본값 설정
@@ -115,13 +123,6 @@ public class MainActivity extends AppCompatActivity {
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .build();
 
-        // 위치 권한 요청
-        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
-        } else {
-            setupGeofences();
-        }
-
         Button startButton = findViewById(R.id.start_button);
         Button stopButton = findViewById(R.id.stop_button);
 
@@ -138,9 +139,9 @@ public class MainActivity extends AppCompatActivity {
         if (!LocationService.isServiceRunning(this)) {
             Intent serviceIntent = new Intent(this, LocationService.class);
             startService(serviceIntent);  // 서비스 시작
-            Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
+            //Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
         } else {
-            Toast.makeText(this, "서비스가 이미 실행 중입니다.", Toast.LENGTH_SHORT).show();
+           // Toast.makeText(this, "서비스가 이미 실행 중입니다.", Toast.LENGTH_SHORT).show();
         }
     }
 
@@ -175,45 +176,6 @@ public class MainActivity extends AppCompatActivity {
             e.printStackTrace();
         }
     }
-
-    // 지오펜스를 시작하는 메소드 ------------------------------------------------------------------------------------------------
-    // 권한 요청 결과 처리
-    @Override
-    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // 권한이 승인되면 지오펜스를 설정
-                setupGeofences();
-            } else {
-                // 권한이 거부되었을 때 사용자에게 알림
-                Toast.makeText(this, "위치 권한이 거부되었습니다.", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    // 지오펜스를 설정하는 메소드 ( 물류센터 지역 )------------------------------------------------------------------------------------
-    private void setupGeofences() {
-        // Geofence 데이터 목록을 생성
-        List<GeofenceData> geofenceDataList = new ArrayList<>();
-        // ( 고유 Id , 경도, 위도 , 거리 ( 100f = 100미터 ) )  위치 오류가 20미터씩 나기 떄문에 100미터는 설정 해야 된다고 권장
-        geofenceDataList.add(new GeofenceData("1", 37.516123, 127.035089, 10f)); // 공간정보 아카데미 반경 10미터
-        geofenceDataList.add(new GeofenceData("2", 37.514544, 127.032107, 80f)); // 학동역
-
-        // GeofenceHelper 객체 생성
-        GeofenceHelper geofenceHelper = new GeofenceHelper(this);
-
-       geofenceHelper.addGeofences(geofenceDataList);
-    }
-
-    // 지오펜스가 이미 등록된 것인지 확인하는 함수
-    private boolean isGeofenceAlreadyAdded(String geofenceId) {
-        // 여기에 이미 등록된 지오펜스를 확인하는 로직을 구현하세요
-        // 예: SharedPreferences에 저장하거나 Geofence API에서 관리하는 방식
-        return false; // 기본값 false로 설정 (중복 체크 구현 필요)
-    }
-    //---------------------------------------------------------------------------------------------------------------------------
 
     interface ApiService {
         @POST("/api/location/update")

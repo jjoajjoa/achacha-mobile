@@ -46,24 +46,52 @@ public class LocationService extends Service {
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
     private PowerManager.WakeLock wakeLock; // Wake Lock
+    private boolean isTransmitting = false; // 위치 전송 여부 변수
+    private boolean isDriving = false; // 운행 상태 여부 변수
 
+    private LocationCallback locationCallback; // 위치 업데이트를 받을 콜백 객체
 
     @Override
     public void onCreate() {
         super.onCreate();
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
         createNotificationChannel(); // 알림 채널 생성
-        getLocationUpdates(); // 위치 업데이트 시작
-        acquireWakeLock(); // Wake Lock 획득 -- 앱 꺼지지 않게
+        acquireWakeLock(); // Wake Lock 획득
+
+        // 위치 콜백 객체 초기화
+        locationCallback = new LocationCallback() {
+            @Override
+            public void onLocationResult(LocationResult locationResult) {
+                if (isDriving && locationResult != null) {
+                    Location location = locationResult.getLastLocation();
+                    sendLocationToServer(location); // 위치 데이터를 서버로 전송
+                }
+            }
+
+            @Override
+            public void onLocationAvailability(LocationAvailability locationAvailability) {
+                // 위치 서비스 사용 가능 여부 처리
+                if (!locationAvailability.isLocationAvailable()) {
+                    Log.d("LocationService", "위치 서비스 불가");
+                }
+            }
+        };
     }
 
     // Wake Lock 획득
     private void acquireWakeLock() {
         PowerManager powerManager = (PowerManager) getSystemService(POWER_SERVICE);
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::HeartRateWakelock");
+        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "MyApp::LocationServiceWakelock");
         if (wakeLock != null) {
             wakeLock.acquire(); // Wake Lock 획득
         }
+    }
+
+    private LocationRequest createLocationRequest() {
+        return new LocationRequest.Builder(10000)
+                .setMinUpdateIntervalMillis(2000)
+                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
+                .build();
     }
 
     @Override
@@ -72,26 +100,28 @@ public class LocationService extends Service {
 
         if ("start".equals(action)) {
             startForeground(1, createNotification()); // 알림 생성
+            isDriving = true; // 운행 시작
+            startLocationUpdates(); // 위치 업데이트 시작
         } else if ("stop".equals(action)) {
-            // 알림을 제거하고 서비스 종료
             stopForeground(true); // 알림 제거
             stopSelf(); // 서비스 종료
+            isDriving = false; // 운행 중지
+            isTransmitting = false; // 위치 전송 중지
         }
 
         return START_NOT_STICKY;
     }
 
-    LocationCallback locationCallback = new LocationCallback() {
-        @Override
-        public void onLocationResult(LocationResult locationResult) {
-            // 위치 결과 처리
+    private void startLocationUpdates() {
+        locationRequest = createLocationRequest();
+
+        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
+                ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            return; // 권한이 없으면 위치 업데이트 요청하지 않음
         }
 
-        @Override
-        public void onLocationAvailability(LocationAvailability locationAvailability) {
-            // 위치 서비스 사용 가능 여부 처리
-        }
-    };
+        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, getMainLooper());
+    }
 
     @Override
     public void onDestroy() {
@@ -99,15 +129,20 @@ public class LocationService extends Service {
         if (wakeLock != null && wakeLock.isHeld()) {
             wakeLock.release(); // Wake Lock 해제
         }
-        fusedLocationClient.removeLocationUpdates(locationCallback);  // 이미 정의된 locationCallback을 사용
+        fusedLocationClient.removeLocationUpdates(locationCallback);  // 위치 업데이트 중지
         stopLocationUpdates();
+    }
+
+    @Nullable
+    @Override
+    public IBinder onBind(Intent intent) {
+        return null;
     }
 
     // 위치 업데이트 중지
     public void stopLocationUpdates() {
         fusedLocationClient.removeLocationUpdates(locationCallback);
 
-        // 위치 업데이트가 중지되면 서비스도 종료
         stopForeground(true);  // 포그라운드 서비스 종료
         stopSelf();  // 서비스 종료
     }
@@ -121,43 +156,7 @@ public class LocationService extends Service {
         return builder.build();
     }
 
-    // 위치 업데이트 요청
-    private void getLocationUpdates() {
-        locationRequest = new LocationRequest.Builder(10000)
-                .setMinUpdateIntervalMillis(2000)
-                .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
-                .build();
-
-        if (ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED &&
-                ActivityCompat.checkSelfPermission(this, android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            return; // 권한이 없는 경우 위치 업데이트를 요청하지 않음
-        }
-
-        fusedLocationClient.requestLocationUpdates(locationRequest, new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                if (locationResult == null) {
-                    return; // 위치 결과가 없는 경우
-                }
-                for (Location location : locationResult.getLocations()) {
-                    sendLocationToServer(location); // 위치 데이터와 시간을 서버로 전송
-                }
-            }
-        }, getMainLooper());
-    }
-
-    private Notification getNotification() {
-        Intent notificationIntent = new Intent(this, MainActivity.class);
-        PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
-
-        return new NotificationCompat.Builder(this, CHANNEL_ID)
-                .setContentTitle("GPS 서비스")
-                .setContentText("위치 업데이트 수신 중")
-                //.setSmallIcon(R.drawable.ic_location) // 실제 아이콘으로 교체하세요
-                .setContentIntent(pendingIntent)
-                .build();
-    }
-
+    // 알림 채널 생성
     private void createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             NotificationChannel serviceChannel = new NotificationChannel(
@@ -170,12 +169,6 @@ public class LocationService extends Service {
                 manager.createNotificationChannel(serviceChannel);
             }
         }
-    }
-
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null; // 바인드된 서비스가 아님
     }
 
     private void sendLocationToServer(Location location) {
@@ -192,7 +185,7 @@ public class LocationService extends Service {
         String userId = sharedPreferences.getString("userId", "defaultUser"); // 기본값 설정
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.168.10.88:9000/")
+                .baseUrl("http://172.168.10.88:9000/") // 서버 주소 설정
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
@@ -239,4 +232,19 @@ public class LocationService extends Service {
         return false;
     }
 
+    // 위치 전송 시작 메서드
+    public void startTransmitting() {
+        isDriving = true; // 운행 시작
+        isTransmitting = true; // 위치 전송 시작
+        startLocationUpdates(); // 위치 업데이트 시작
+        Log.d("LocationService", "위치 전송 시작");
+    }
+
+    // 위치 전송 중지 메서드
+    public void stopTransmitting() {
+        isDriving = false; // 운행 중지
+        isTransmitting = false; // 위치 전송 중지
+        stopLocationUpdates();  // 위치 업데이트 중지
+        Log.d("LocationService", "위치 전송 중지");
+    }
 }

@@ -1,6 +1,5 @@
 package com.achacha_mobile;
 
-
 import android.app.PendingIntent;
 import android.content.Context;
 import android.content.Intent;
@@ -22,16 +21,19 @@ public class GeofenceHelper {
 
     private static final String TAG = "GeofenceHelper";
     private GeofencingClient geofencingClient;
-    private Context context;
+    private Context mContext;
     private boolean isGeofencesBeingAdded = false;  // 중복 실행 방지 플래그
 
-    public GeofenceHelper(Context context) {
-        this.context = context;
-        this.geofencingClient = LocationServices.getGeofencingClient(context);
+    public GeofenceHelper(Context applicationContext) {
+        if (applicationContext == null) {
+            throw new IllegalArgumentException("Context cannot be null");
+        }
+        this.mContext = applicationContext.getApplicationContext();
+        this.geofencingClient = LocationServices.getGeofencingClient(mContext);
     }
 
     // 지오펜스를 등록하는 메소드
-    public void addGeofences(List<GeofenceData> geofenceDataList) {
+    public void addGeofences(MainActivity mainActivity, List<GeofenceData> geofenceDataList) {
         if (isGeofencesBeingAdded) {
             // 이미 지오펜스를 등록 중이면 추가 작업을 막음
             Log.d(TAG, "Geofences are already being added.");
@@ -42,7 +44,6 @@ public class GeofenceHelper {
         isGeofencesBeingAdded = true;
 
         List<Geofence> geofenceList = new ArrayList<>();
-
         // 유효한 지오펜스 데이터만 리스트에 추가
         for (GeofenceData data : geofenceDataList) {
             if (isValidGeofenceData(data)) {
@@ -72,8 +73,9 @@ public class GeofenceHelper {
             PendingIntent pendingIntent = createGeofencePendingIntent();
 
             // 권한 확인 후 지오펜스 등록
-            if (ActivityCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            if (ActivityCompat.checkSelfPermission(mContext, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
                 isGeofencesBeingAdded = false; // 권한이 없으면 작업을 마친 것으로 간주
+                Log.e(TAG, "Location permission is not granted");
                 return; // 권한이 없으면 등록하지 않음
             }
 
@@ -110,11 +112,11 @@ public class GeofenceHelper {
 
     // 지오펜스를 처리할 PendingIntent 생성
     private PendingIntent createGeofencePendingIntent() {
-        Intent intent = new Intent(context, GeofenceService.class);
+        Intent intent = new Intent(mContext, GeofenceService.class);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            return PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_IMMUTABLE);
+            return PendingIntent.getService(mContext, 0, intent, PendingIntent.FLAG_IMMUTABLE);
         } else {
-            return PendingIntent.getService(context, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
+            return PendingIntent.getService(mContext, 0, intent, PendingIntent.FLAG_UPDATE_CURRENT);
         }
     }
 }
