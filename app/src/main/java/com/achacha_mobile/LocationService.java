@@ -123,7 +123,7 @@ public class LocationService extends Service {
 
     // 위치 업데이트 요청
     private void getLocationUpdates() {
-        locationRequest = new LocationRequest.Builder(5000)
+        locationRequest = new LocationRequest.Builder(10000)
                 .setMinUpdateIntervalMillis(2000)
                 .setPriority(Priority.PRIORITY_HIGH_ACCURACY)
                 .build();

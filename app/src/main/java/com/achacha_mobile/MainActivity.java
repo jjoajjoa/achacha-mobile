@@ -47,7 +47,9 @@ import java.io.OutputStream;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import com.google.firebase.firestore.FirebaseFirestore;
@@ -56,6 +58,8 @@ import com.google.firebase.firestore.FieldValue;
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
     private static final String BASE_URL = "http://172.168.10.88:9000/";
+
+    private static final int LOCATION_PERMISSION_REQUEST_CODE = 1; // 위치 권한 성공 했다는 코드 (지오팬스)
 
     private FusedLocationProviderClient fusedLocationClient;
     private LocationRequest locationRequest;
@@ -113,7 +117,9 @@ public class MainActivity extends AppCompatActivity {
 
         // 위치 권한 요청
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, 1);
+            ActivityCompat.requestPermissions(this, new String[]{Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_PERMISSION_REQUEST_CODE);
+        } else {
+            setupGeofences();
         }
 
         Button startButton = findViewById(R.id.start_button);
@@ -125,19 +131,6 @@ public class MainActivity extends AppCompatActivity {
         // 서비스 종료 버튼 클릭 시 서비스 종료
         stopButton.setOnClickListener(v -> stopLocationUpdates());
 
-        // 위치 업데이트 콜백 설정
-        locationCallback = new LocationCallback() {
-            @Override
-            public void onLocationResult(LocationResult locationResult) {
-                if (locationResult == null) {
-                    return;
-                }
-                for (Location location : locationResult.getLocations()) {
-                    Log.d(TAG, "New location: " + location.toString()); // 새로운 위치 로그
-                    // sendLocationToServer(location); -- 포그라운드 에서 실행 함 - 없어도 됨
-                }
-            }
-        };
     }
 
     public void startLocationUpdates() {
@@ -183,6 +176,44 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    // 지오펜스를 시작하는 메소드 ------------------------------------------------------------------------------------------------
+    // 권한 요청 결과 처리
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // 권한이 승인되면 지오펜스를 설정
+                setupGeofences();
+            } else {
+                // 권한이 거부되었을 때 사용자에게 알림
+                Toast.makeText(this, "위치 권한이 거부되었습니다.", Toast.LENGTH_SHORT).show();
+            }
+        }
+    }
+
+    // 지오펜스를 설정하는 메소드 ( 물류센터 지역 )------------------------------------------------------------------------------------
+    private void setupGeofences() {
+        // Geofence 데이터 목록을 생성
+        List<GeofenceData> geofenceDataList = new ArrayList<>();
+        // ( 고유 Id , 경도, 위도 , 거리 ( 100f = 100미터 ) )  위치 오류가 20미터씩 나기 떄문에 100미터는 설정 해야 된다고 권장
+        geofenceDataList.add(new GeofenceData("1", 37.516123, 127.035089, 10f)); // 공간정보 아카데미 반경 10미터
+        geofenceDataList.add(new GeofenceData("2", 37.514544, 127.032107, 80f)); // 학동역
+
+        // GeofenceHelper 객체 생성
+        GeofenceHelper geofenceHelper = new GeofenceHelper(this);
+
+       geofenceHelper.addGeofences(geofenceDataList);
+    }
+
+    // 지오펜스가 이미 등록된 것인지 확인하는 함수
+    private boolean isGeofenceAlreadyAdded(String geofenceId) {
+        // 여기에 이미 등록된 지오펜스를 확인하는 로직을 구현하세요
+        // 예: SharedPreferences에 저장하거나 Geofence API에서 관리하는 방식
+        return false; // 기본값 false로 설정 (중복 체크 구현 필요)
+    }
+    //---------------------------------------------------------------------------------------------------------------------------
 
     interface ApiService {
         @POST("/api/location/update")
@@ -275,5 +306,5 @@ public class MainActivity extends AppCompatActivity {
         Notification noti = builder.build();
         manager.notify(3, noti);
     }
-    
+
 }
