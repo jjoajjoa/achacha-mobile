@@ -48,7 +48,7 @@ import com.google.firebase.firestore.FieldValue;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = "MainActivity";
-    private static final String BASE_URL = "http://172.168.10.88:9000/";
+    private static final String BASE_URL = "http://175.197.201.115:9000/";
 
     private static final int LOCATION_PERMISSION_REQUEST_CODE = 1; // 위치 권한 성공 했다는 코드 (지오팬스)
     private GeofenceHelper geofenceHelper;
@@ -89,6 +89,7 @@ public class MainActivity extends AppCompatActivity {
 
         SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
         String userId = sharedPreferences.getString("userId", null); // 기본값 설정
+
         //웹뷰 설정
         webView = findViewById(R.id.webView);
         webView.setWebViewClient(new WebViewClient());
@@ -109,10 +110,10 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);  // 캐시 모드 설정
 
         if (userId == null) {
-            webView.loadUrl("http://172.168.10.88:8080/applogin");
+            webView.loadUrl("http://175.197.201.115:8080/applogin");
         } else {
             Log.d("userId",userId);
-            webView.loadUrl("http://172.168.10.88:8080/apphome");
+            webView.loadUrl("http://175.197.201.115:8080/apphome");
         }
 
         fusedLocationClient = LocationServices.getFusedLocationProviderClient(this);
@@ -143,7 +144,7 @@ public class MainActivity extends AppCompatActivity {
         } else {
            // Toast.makeText(this, "서비스가 이미 실행 중입니다.", Toast.LENGTH_SHORT).show();
         }
-        fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
+       // fusedLocationClient.requestLocationUpdates(locationRequest, locationCallback, null);
         Toast.makeText(this, "위치 업데이트 시작", Toast.LENGTH_SHORT).show();
     }
 

@@ -182,10 +182,11 @@ public class LocationService extends Service {
 
         // 사용자 아이디 가져오기
         SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
-        String userId = sharedPreferences.getString("userId", "defaultUser"); // 기본값 설정
+        String userId = sharedPreferences.getString("userId", null); // 기본값 설정
+        Log.e("userID", userId);
 
         Retrofit retrofit = new Retrofit.Builder()
-                .baseUrl("http://172.168.10.88:9000/") // 서버 주소 설정
+                .baseUrl("http://175.197.201.115:9000/") // 서버 주소 설정
                 .addConverterFactory(GsonConverterFactory.create())
                 .build();
 
