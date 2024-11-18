@@ -11,6 +11,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
 import android.util.Log;
+import android.webkit.ConsoleMessage;
+import android.webkit.CookieManager;
+import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -96,6 +99,10 @@ public class MainActivity extends AppCompatActivity {
 
         webView.addJavascriptInterface(new WebAppInterface(this), "Android");
 
+        // 쿠키 허용
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+
         // WebView의 설정
         WebSettings webSettings = webView.getSettings();
         webSettings.setJavaScriptEnabled(true);  // JavaScript 활성화
@@ -108,6 +115,18 @@ public class MainActivity extends AppCompatActivity {
         webSettings.setBuiltInZoomControls(true);  // 기본 줌 컨트롤 활성화
         webSettings.setDisplayZoomControls(false);  // 줌 컨트롤 UI를 숨기기
         webSettings.setCacheMode(WebSettings.LOAD_DEFAULT);  // 캐시 모드 설정
+        webSettings.setAllowUniversalAccessFromFileURLs(true);
+
+
+        // WebChromeClient 설정 (console 메시지를 로그로 출력)
+        webView.setWebChromeClient(new WebChromeClient() {
+            @Override
+            public boolean onConsoleMessage(ConsoleMessage consoleMessage) {
+                // 웹 콘솔 메시지 출력
+                Log.d("WebView", consoleMessage.message());
+                return super.onConsoleMessage(consoleMessage);
+            }
+        });
 
         if (userId == null) {
             webView.loadUrl("http://175.197.201.115:8080/applogin");

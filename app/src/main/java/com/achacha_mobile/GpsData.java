@@ -34,14 +34,14 @@ public class GpsData {
         this.time = time;
     }
 
-    public GpsData(Double latitude, Double longitude, Double altitude, Double speed, Double accuracy, String time, String userId) {
+    public GpsData(Double latitude, Double longitude, Double altitude, Double speed, Double accuracy, String time, String employeeId) {
         this.latitude = latitude;
         this.longitude = longitude;
         this.altitude = altitude;
         this.speed = speed;
         this.accuracy = accuracy;
         this.time = time;
-        this.employeeId = userId;
+        this.employeeId = employeeId;
     }
 
     // Getter와 Setter

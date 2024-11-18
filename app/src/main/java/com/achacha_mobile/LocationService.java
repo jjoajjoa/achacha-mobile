@@ -182,8 +182,8 @@ public class LocationService extends Service {
 
         // 사용자 아이디 가져오기
         SharedPreferences sharedPreferences = getSharedPreferences("loginPrefs", Context.MODE_PRIVATE);
-        String userId = sharedPreferences.getString("userId", null); // 기본값 설정
-        Log.e("userID", userId);
+        String employeeId = sharedPreferences.getString("userId", null); // 기본값 설정
+        Log.e("userID", employeeId);
 
         Retrofit retrofit = new Retrofit.Builder()
                 .baseUrl("http://175.197.201.115:9000/") // 서버 주소 설정
@@ -191,7 +191,7 @@ public class LocationService extends Service {
                 .build();
 
         MainActivity.ApiService apiService = retrofit.create(MainActivity.ApiService.class);
-        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time, userId);
+        GpsData gpsData = new GpsData(latitude, longitude, altitude, speed, accuracy, time, employeeId);
 
         Call<Void> call = apiService.updateLocation(gpsData);
         call.enqueue(new Callback<Void>() {
