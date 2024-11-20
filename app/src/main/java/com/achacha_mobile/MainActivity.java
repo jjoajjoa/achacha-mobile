@@ -36,6 +36,7 @@ import androidx.camera.core.ImageAnalysis;
 import androidx.camera.core.ImageProxy;
 import androidx.camera.core.Preview;
 import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.core.app.ActivityCompat;
 import androidx.core.app.NotificationCompat;
 import androidx.core.content.ContextCompat;
@@ -61,6 +62,7 @@ import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarker;
 import com.google.mediapipe.tasks.vision.facelandmarker.FaceLandmarkerResult;
 import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions;
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark;
+import com.google.mlkit.vision.face.FaceLandmark;
 
 import org.tensorflow.lite.support.image.ImageProperties;
 
@@ -182,10 +184,12 @@ public class MainActivity extends AppCompatActivity {
                 }
                 for (Location location : locationResult.getLocations()) {
                     Log.d(TAG, "New location: " + location.toString()); // 새로운 위치 로그
-                   // sendLocationToServer(location); -- 포그라운드 에서 실행 함 - 없어도 됨
+                    // sendLocationToServer(location); -- 포그라운드 에서 실행 함 - 없어도 됨
                 }
             }
         };
+
+
 
         // MediaPipe 모델 초기화
         loadModel();
@@ -450,32 +454,51 @@ public class MainActivity extends AppCompatActivity {
     // ImageAnalysis를 사용하여 카메라에서 캡처된 이미지를 분석하고, 얼굴 랜드마크를 감지
     // imageToBitmap() 메서드에서 ImageProxy를 Bitmap으로 변환하고, 이를 MediaPipe에서 처리할 수 있도록 MPImage로 변환
     private void startCamera() {
+        Log.d(TAG, "카메라 시작 시도");
         ListenableFuture<ProcessCameraProvider> cameraProviderFuture = ProcessCameraProvider.getInstance(this);
         cameraProviderFuture.addListener(() -> {
             try {
                 ProcessCameraProvider cameraProvider = cameraProviderFuture.get();
+                PreviewView previewView = findViewById(R.id.preview_view); // PreviewView 연결
+                Preview preview = new Preview.Builder()
+                        .setTargetRotation(getWindowManager().getDefaultDisplay().getRotation())
+                        .build();
+                preview.setSurfaceProvider(previewView.getSurfaceProvider());
 
-                Preview preview = new Preview.Builder().build();
                 CameraSelector cameraSelector = new CameraSelector.Builder()
                         .requireLensFacing(CameraSelector.LENS_FACING_FRONT)
                         .build();
 
                 ImageAnalysis imageAnalysis = new ImageAnalysis.Builder()
                         .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                        .setTargetRotation(getWindowManager().getDefaultDisplay().getRotation())
                         .build();
 
                 imageAnalysis.setAnalyzer(ContextCompat.getMainExecutor(this), image -> {
+                    //Log.d(TAG, "이미지 분석 시작");
+
                     if (faceLandmarker != null) {
-                        Bitmap bitmap = imageToBitmap(image);
-                        MPImage mpImage = new BitmapImageBuilder(bitmap).build();
+                        Bitmap bitmap = imageToBitmap(image); // 이미지 변환
+                        if (bitmap != null) {
+                            Log.d(TAG, "이미지 변환 완료");
 
-                        // 얼굴 랜드마크 추출 및 분석
-                        FaceLandmarkerResult result = faceLandmarker.detect(mpImage);
-                        analyzeFaceLandmarks(result);
+                            MPImage mpImage = new BitmapImageBuilder(bitmap).build();
+                            FaceLandmarkerResult result = faceLandmarker.detect(mpImage); // 얼굴 랜드마크 감지
 
-                        // 이미지 리소스 해제
-                        image.close();
+                            if (result != null && !result.faceLandmarks().isEmpty()) {
+                                Log.d(TAG, "얼굴 랜드마크 감지 완료");
+                                analyzeFaceLandmarks(result); // 랜드마크 분석
+                            } else {
+                                Log.d(TAG, "얼굴 랜드마크 감지 실패 또는 얼굴이 없음");
+                            }
+                        } else {
+                            Log.d(TAG, "이미지 변환 실패");
+                        }
+                    } else {
+                        Log.e(TAG, "메롱");
                     }
+
+                    image.close();
                 });
 
                 cameraProvider.bindToLifecycle(this, cameraSelector, preview, imageAnalysis);
@@ -485,11 +508,8 @@ public class MainActivity extends AppCompatActivity {
         }, ContextCompat.getMainExecutor(this));
     }
 
-
-    // ImageProxy에서 YUV 이미지 데이터를 추출하고 이를 Bitmap으로 변환
-    // YuvImage를 사용하여 NV21 포맷의 이미지를 JPEG로 변환하고, 이를 BitmapFactory로 디코딩하여 Bitmap 객체를 반환
-    // 변환된 Bitmap은 얼굴 랜드마크를 추출하는 데 사용
     private Bitmap imageToBitmap(ImageProxy image) {
+        Log.d(TAG, "이미지 변환 중...");
         ImageProxy.PlaneProxy[] planes = image.getPlanes();
         ByteBuffer yBuffer = planes[0].getBuffer();
         ByteBuffer uBuffer = planes[1].getBuffer();
@@ -508,12 +528,18 @@ public class MainActivity extends AppCompatActivity {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         yuvImage.compressToJpeg(new Rect(0, 0, yuvImage.getWidth(), yuvImage.getHeight()), 100, out);
         byte[] imageBytes = out.toByteArray();
-        return BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+
+        Bitmap bitmap = BitmapFactory.decodeByteArray(imageBytes, 0, imageBytes.length);
+        if (bitmap != null) {
+            Log.d(TAG, "Bitmap 변환 성공");
+        } else {
+            Log.d(TAG, "Bitmap 변환 실패");
+        }
+        return bitmap;
     }
 
-    // 얼굴 랜드마크 분석 메서드
     private void analyzeFaceLandmarks(FaceLandmarkerResult result) {
-        if (result.faceLandmarks().isEmpty()) {
+        if (result == null || result.faceLandmarks().isEmpty()) {
             Log.d(TAG, "얼굴이 감지되지 않았습니다.");
             return;
         }
@@ -539,21 +565,25 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    // 눈 감김 여부 확인 (눈꺼풀 사이의 Y 좌표 차이로 판단)
     private boolean isEyeClosed(List<NormalizedLandmark> eyeLandmarks) {
+        if (eyeLandmarks == null || eyeLandmarks.size() < 6) {
+            return false;
+        }
         float upperY = eyeLandmarks.get(1).y();
         float lowerY = eyeLandmarks.get(5).y();
-        return (lowerY - upperY) < 0.03f;  // 눈이 감긴 상태를 판단하는 기준
+        return (lowerY - upperY) < 0.03f;  // 기준 값으로 눈이 감긴 상태를 판단
     }
+
 
     // 왼쪽 눈 랜드마크 추출
     private List<NormalizedLandmark> getLeftEyeLandmarks(List<NormalizedLandmark> faceLandmarks) {
-        return faceLandmarks.subList(362, 374);
+        return faceLandmarks.subList(362, 374); // 왼쪽 눈 랜드마크 범위 (MediaPipe 문서 참조)
     }
 
     // 오른쪽 눈 랜드마크 추출
     private List<NormalizedLandmark> getRightEyeLandmarks(List<NormalizedLandmark> faceLandmarks) {
-        return faceLandmarks.subList(133, 145);
+        return faceLandmarks.subList(133, 145); // 오른쪽 눈 랜드마크 범위 (MediaPipe 문서 참조)
     }
+
 
 } //MainActivity
