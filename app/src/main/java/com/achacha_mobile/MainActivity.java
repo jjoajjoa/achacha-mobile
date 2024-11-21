@@ -189,11 +189,6 @@ public class MainActivity extends AppCompatActivity {
             }
         };
 
-
-
-        // MediaPipe 모델 초기화
-        loadModel();
-
     } //onCreate
 
     // 권한 요청 결과 처리
@@ -215,7 +210,13 @@ public class MainActivity extends AppCompatActivity {
     // 권한 허용 시 처리
     private void onPermissionsGranted() {
         // 권한이 모두 허용되었을 때의 로직 추가
-        startCamera(); // 예시: 카메라 시작
+        loadModel();
+        if (faceLandmarker != null) {
+            startCamera();
+        } else {
+            Log.e(TAG, "FaceLandmarker 초기화 실패. 카메라를 시작할 수 없습니다.");
+            Toast.makeText(this, "모델 로드 실패! 앱을 다시 실행해주세요.", Toast.LENGTH_LONG).show();
+        }
         startLocationUpdates(); // 위치 업데이트 시작
     }
 
@@ -438,9 +439,9 @@ public class MainActivity extends AppCompatActivity {
         try {
             faceLandmarker = FaceLandmarker.createFromFile(this, "face_landmark.tflite");
             if (faceLandmarker == null) {
-                Log.e(TAG, "FaceLandmarker is null after loading model.");
+                Log.e(TAG, "FaceLandmarker 초기화 실패");
             } else {
-                Log.d(TAG, "Model loaded successfully.");
+                Log.d(TAG, "FaceLandmarker 초기화 성공.");
             }
         } catch (MediaPipeException e) {  // MediaPipe 관련 예외 처리
             Log.e(TAG, "MediaPipe error loading model: " + e.getMessage());
